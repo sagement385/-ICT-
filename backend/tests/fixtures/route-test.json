@@ -1,0 +1,15 @@
+{
+  "query": {
+    "origin_latitude": 0.0,
+    "origin_longitude": 0.0,
+    "destination_latitude": 0.05,
+    "destination_longitude": 0.0
+  },
+  "response": {
+    "provider_name": "TEST_ROUTE_PROVIDER",
+    "distance_meters": 1000,
+    "duration_seconds": 120,
+    "traffic_summary": "TEST_TRAFFIC",
+    "path": [[0.0, 0.0], [0.05, 0.0]]
+  }
+}

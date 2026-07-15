@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+  <header><resultCode>00</resultCode><resultMsg>NORMAL SERVICE.</resultMsg></header>
+  <body>
+    <items>
+      <item>
+        <addr>TEST_ADDRESS_001</addr><clCd>01</clCd><clCdNm>TEST_TYPE_001</clCdNm>
+        <telno>000-0000-0000</telno><XPos>127.0001</XPos><YPos>36.0001</YPos>
+        <sidoCd>330000</sidoCd><sidoCdNm>TEST_REGION_001</sidoCdNm>
+        <yadmNm>TEST_HOSPITAL_001</yadmNm><ykiho>TEST_HOSPITAL_001_ID</ykiho>
+      </item>
+    </items>
+    <numOfRows>1</numOfRows><pageNo>1</pageNo><totalCount>1</totalCount>
+  </body>
+</response>

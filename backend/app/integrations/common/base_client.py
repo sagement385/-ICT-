@@ -36,12 +36,14 @@ class BaseExternalClient:
         base_url: str | None,
         api_key: str | None,
         source_name: str,
+        api_key_param: str | None = "serviceKey",
         timeout_seconds: float = 10.0,
         max_retries: int = 2,
     ) -> None:
         self.base_url = base_url
         self.api_key = api_key
         self.source_name = source_name
+        self.api_key_param = api_key_param
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries
 
@@ -52,10 +54,11 @@ class BaseExternalClient:
         *,
         params: Mapping[str, str | int | float] | None = None,
         headers: Mapping[str, str] | None = None,
+        json_body: Any | None = None,
     ) -> RawExternalResponse:
         """Make an HTTP request and return a raw response without field assumptions."""
 
-        if not self.base_url or not self.api_key:
+        if not self.base_url or (self.api_key_param and not self.api_key):
             raise ApplicationError(
                 code="EXTERNAL_SERVICE_NOT_CONFIGURED",
                 message=f"{self.source_name} 외부 서비스 설정이 없습니다.",
@@ -65,15 +68,19 @@ class BaseExternalClient:
         request_id = str(uuid4())
         url = f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
         request_headers = {"X-Request-ID": request_id, **(headers or {})}
+        request_params = dict(params or {})
+        if self.api_key_param and self.api_key:
+            request_params.setdefault(self.api_key_param, self.api_key)
         async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
             for attempt in range(self.max_retries + 1):
                 try:
-                    response = await client.request(
-                        method,
-                        url,
-                        params=params,
-                        headers=request_headers,
-                    )
+                    request_kwargs: dict[str, Any] = {
+                        "params": request_params,
+                        "headers": request_headers,
+                    }
+                    if json_body is not None:
+                        request_kwargs["json"] = json_body
+                    response = await client.request(method, url, **request_kwargs)
                 except httpx.HTTPError as exc:
                     if attempt >= self.max_retries:
                         raise ApplicationError(
@@ -112,7 +119,7 @@ class BaseExternalClient:
         missing: list[str] = []
         if not self.base_url:
             missing.append("BASE_URL")
-        if not self.api_key:
+        if self.api_key_param and not self.api_key:
             missing.append("API_KEY")
         return missing
 
@@ -122,8 +129,10 @@ class BaseExternalClient:
 
         if not response.content:
             return None
+        text_payload = response.content.decode("utf-8-sig", errors="replace")
         try:
-            return response.json()
-        except ValueError:
-            return response.text
+            import json
 
+            return json.loads(text_payload)
+        except ValueError:
+            return text_payload

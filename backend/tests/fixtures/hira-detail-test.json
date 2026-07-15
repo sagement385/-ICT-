@@ -1,0 +1,17 @@
+{
+  "response": {
+    "header": {"resultCode": "00", "resultMsg": "NORMAL SERVICE."},
+    "body": {
+      "items": {
+        "item": [
+          {
+            "dgsbjtCd": "TEST_DEPARTMENT_CODE_001",
+            "dgsbjtCdNm": "TEST_DEPARTMENT_001",
+            "dgsbjtPrSdrCnt": "2"
+          }
+        ]
+      },
+      "totalCount": 1
+    }
+  }
+}

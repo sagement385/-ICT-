@@ -4,16 +4,25 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ApplicationError
+from app.modules.hospital.models import Hospital
 
 
 async def load(session: AsyncSession, record: dict[str, Any]) -> None:
-    """Remain disabled until the source-backed normalized schema exists."""
+    """Upsert one normalized HIRA basic record into the hospital table."""
 
-    del session, record
-    raise ApplicationError(
-        code="HOSPITAL_LOAD_NOT_IMPLEMENTED",
-        message="검증된 병원 정규화 레코드 적재가 아직 없습니다.",
-        details={},
+    await session.merge(
+        Hospital(
+            hospital_id=str(record["hospital_id"]),
+            hospital_name=str(record["hospital_name"]),
+            hospital_type_code=record.get("hospital_type_code"),
+            address=record.get("address"),
+            latitude=record.get("latitude"),
+            longitude=record.get("longitude"),
+            phone=record.get("phone"),
+            source_name="hira-hospital-info",
+            source_record_id=str(record["hospital_id"]),
+            raw_payload_id=record.get("raw_payload_id"),
+            schema_version="hira-hospital-info.v1",
+            source_updated_at=record.get("source_updated_at"),
+        )
     )
-

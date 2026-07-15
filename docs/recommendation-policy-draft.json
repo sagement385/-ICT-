@@ -1,0 +1,64 @@
+{
+  "policy_name": "CHUNGBUK_EMERGENCY_SUPPORT_DRAFT",
+  "policy_version": "0.1.0-draft",
+  "enabled": false,
+  "approval_status": "REVIEW_REQUIRED",
+  "evidence_source": [
+    "https://www.mohw.go.kr/board.es?act=view&bid=0027&list_no=1478903&mid=a10503010100&nPage=19&tag=",
+    "https://www.mohw.go.kr/gallery.es?act=view&bid=0003&list_no=363600&mid=a10505000000&tag=",
+    "https://www.law.go.kr/LSW/lsInfoP.do?ancYnChk=0&chrClsCd=010202&efYd=20260605&lsiSeq=286793&urlMode=lsInfoP"
+  ],
+  "clinical_boundary": {
+    "triage_input": "Pre-KTAS or institution-approved prehospital triage result",
+    "system_must_not_infer_triage_from_free_text": true,
+    "human_decision_owner": "trained emergency medical personnel and medical director"
+  },
+  "candidate_constraints": [
+    "PATIENT_LOCATION_REQUIRED",
+    "HOSPITAL_COORDINATES_REQUIRED",
+    "RADIUS_KM_MUST_BE_BETWEEN_5_AND_10",
+    "NO_ROUTE_NO_TRAVEL_TIME_RANKING",
+    "MISSING_OR_STALE_REALTIME_STATUS_REQUIRES_WARNING",
+    "UNVERIFIED_SOURCE_FIELD_MUST_NOT_BE_USED"
+  ],
+  "factors": [
+    {
+      "factor_name": "route_duration_seconds",
+      "weight_value": null,
+      "requires_approval": true,
+      "source": "Naver Directions"
+    },
+    {
+      "factor_name": "department_match",
+      "weight_value": null,
+      "requires_approval": true,
+      "source": "HIRA hospital detail"
+    },
+    {
+      "factor_name": "specialist_or_capability_match",
+      "weight_value": null,
+      "requires_approval": true,
+      "source": "HIRA hospital detail"
+    },
+    {
+      "factor_name": "realtime_acceptance_status",
+      "weight_value": null,
+      "requires_approval": true,
+      "source": "NEMC realtime status"
+    },
+    {
+      "factor_name": "data_freshness",
+      "weight_value": null,
+      "requires_approval": true,
+      "source": "source fetched_at and source_updated_at"
+    }
+  ],
+  "activation_requirements": [
+    "medical_director_review",
+    "119_and_hospital_acceptance_workflow_review",
+    "field_semantics_and_staleness_review",
+    "approved_numeric_weights",
+    "validation_set_evaluation",
+    "human_override_and_audit_log_review"
+  ]
+}

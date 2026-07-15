@@ -1,17 +1,11 @@
-"""Hospital normalization stage awaiting verified source samples."""
+"""Hospital normalization stage backed by the verified HIRA basic sample."""
 
 from typing import Any
 
-from app.core.errors import ApplicationError
+from app.integrations.hira.parser import parse_basic_hospitals
 
 
-def normalize(payload: Any) -> dict[str, Any]:
-    """Stop before guessing provider field names."""
+def normalize(payload: Any) -> list[dict[str, Any]]:
+    """Normalize fields confirmed by HIRA basic-list responses."""
 
-    del payload
-    raise ApplicationError(
-        code="HOSPITAL_PARSER_NOT_IMPLEMENTED",
-        message="실제 병원 API 응답 샘플 기반 정규화가 아직 없습니다.",
-        details={},
-    )
-
+    return [hospital.model_dump() for hospital in parse_basic_hospitals(payload)]

@@ -131,3 +131,8 @@ npm run build
 
 외부 API를 구현할 때는 공식 문서와 실제 샘플 응답을 먼저 확보하고, 확인된 필드만 parser/validator에 반영합니다. 현재 확인 결과와 TODO는 [`docs/data-sources.md`](docs/data-sources.md)에 기록했습니다.
 
+## 채팅 입력과 Gemini 보조 추출
+
+음성 AI 데이터가 준비되기 전에는 프론트엔드의 단계별 채팅 입력을 사용합니다. 증상 자유 입력만 `POST /api/v1/patients/assist`로 보내 Gemini가 사용자 문장에 명시한 사실을 구조화합니다. 이 기능은 진단, KTAS/Pre-KTAS 판단, 병원 추천, 수용 가능 여부 판단을 하지 않으며 결과에는 항상 사람 확인 필요 표시가 포함됩니다.
+
+`GEMINI_API_KEY`가 없으면 `EXTERNAL_SERVICE_NOT_CONFIGURED`, 키가 유효하지 않거나 Gemini가 오류를 반환하면 `GEMINI_API_ERROR`로 HTTP 503을 반환합니다. 오류 시 프론트엔드는 사용자가 입력한 원문을 보존해 수동 확인 흐름으로 진행합니다. 키는 `.env`에만 저장하고 저장소에는 올리지 않습니다.

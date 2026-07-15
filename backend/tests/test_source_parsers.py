@@ -1,0 +1,33 @@
+import json
+from pathlib import Path
+
+from app.integrations.hira.detail_parser import parse_detail
+from app.integrations.hira.parser import parse_basic_hospitals
+from app.integrations.hira.parser import parse_total_count as parse_hira_total_count
+from app.integrations.nemc.parser import parse_realtime_records
+from app.integrations.nemc.parser import parse_total_count as parse_nemc_total_count
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def test_hira_basic_fixture_is_normalized() -> None:
+    payload = (FIXTURES / "hira-basic-test.xml").read_text(encoding="utf-8")
+    hospitals = parse_basic_hospitals(payload)
+    assert parse_hira_total_count(payload) == 1
+    assert hospitals[0].hospital_id == "TEST_HOSPITAL_001_ID"
+    assert hospitals[0].latitude == 36.0001
+
+
+def test_nemc_fixture_preserves_raw_status_fields() -> None:
+    payload = (FIXTURES / "nemc-realtime-test.xml").read_text(encoding="utf-8")
+    records = parse_realtime_records(payload)
+    assert parse_nemc_total_count(payload) == 1
+    assert records[0].source_record_id == "TEST_NEMC_001"
+    assert records[0].raw_fields["hvs01"] == "TEST_RAW_STATUS"
+
+
+def test_hira_detail_fixture_normalizes_verified_department_fields() -> None:
+    payload = json.loads((FIXTURES / "hira-detail-test.json").read_text(encoding="utf-8"))
+    result = parse_detail("getDgsbjtInfo2.8", payload)
+    assert result.departments[0].department_code == "TEST_DEPARTMENT_CODE_001"
+    assert result.departments[0].specialist_count == 2

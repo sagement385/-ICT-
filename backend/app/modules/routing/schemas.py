@@ -26,4 +26,52 @@ class RouteSnapshotData(BaseModel):
     duration_seconds: int = Field(ge=0)
     traffic_summary: str | None = None
     fetched_at: datetime
+    path: list[tuple[float, float]] | None = None
 
+
+class RouteDestination(BaseModel):
+    """One source-backed hospital destination for a map route lookup."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    hospital_id: str = Field(min_length=1)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+
+
+class RouteBatchQuery(BaseModel):
+    """One patient origin and up to ten visible hospital destinations."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    origin_latitude: float = Field(ge=-90, le=90)
+    origin_longitude: float = Field(ge=-180, le=180)
+    destinations: list[RouteDestination] = Field(min_length=1, max_length=10)
+
+
+class RouteBatchItem(BaseModel):
+    """One successful hospital route in a batch response."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    hospital_id: str
+    route: RouteSnapshotData
+
+
+class RouteBatchError(BaseModel):
+    """A destination-specific route failure without fabricated route data."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    hospital_id: str
+    code: str
+    message: str
+
+
+class RouteBatchResponse(BaseModel):
+    """Successful routes and explicit per-destination failures."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    routes: list[RouteBatchItem]
+    errors: list[RouteBatchError]

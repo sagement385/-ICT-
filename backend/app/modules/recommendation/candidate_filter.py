@@ -1,7 +1,9 @@
-"""Candidate filter interface with no unapproved clinical defaults."""
+"""Candidate filter for geography only; clinical exclusions remain policy-owned."""
 
 from typing import TYPE_CHECKING
 
+from app.core.config import get_settings
+from app.modules.hospital.geo import distance_km
 from app.modules.hospital.models import Hospital
 from app.modules.patient.schemas import PatientEventRequest
 
@@ -18,8 +20,21 @@ class CandidateFilter:
         hospitals: list[Hospital],
         policy: "PolicyBundle | None",
     ) -> list[Hospital]:
-        """Return candidates unchanged until a verified filter policy exists."""
+        """Limit candidates by the configured 5-10 km geographic search radius."""
 
-        del patient, policy
-        return list(hospitals)
-
+        del policy
+        if patient.location.latitude is None or patient.location.longitude is None:
+            return []
+        radius_km = get_settings().candidate_radius_km
+        return [
+            hospital
+            for hospital in hospitals
+            if hospital.latitude is not None
+            and hospital.longitude is not None
+            and distance_km(
+                patient.location.latitude,
+                patient.location.longitude,
+                hospital.latitude,
+                hospital.longitude,
+            ) <= radius_km
+        ]

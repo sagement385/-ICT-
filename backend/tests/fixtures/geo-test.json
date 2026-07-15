@@ -1,0 +1,6 @@
+{
+  "origin": {"latitude": 0.0, "longitude": 0.0},
+  "inside_radius": {"latitude": 0.05, "longitude": 0.0},
+  "outside_radius": {"latitude": 0.2, "longitude": 0.0},
+  "radius_km": 10.0
+}

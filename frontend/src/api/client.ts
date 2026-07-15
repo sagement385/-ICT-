@@ -15,14 +15,27 @@ export async function requestJson<T>(path: string, init?: RequestInit): Promise<
   if (!API_BASE_URL) {
     throw new ApiError("BACKEND_API_NOT_CONFIGURED", "백엔드 API 주소가 설정되지 않았습니다.");
   }
-  const response = await fetch(`${API_BASE_URL.replace(/\/$/, "")}${path}`, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
-  });
-  const body = (await response.json()) as { error?: { code: string; message: string; details?: Record<string, unknown> } };
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL.replace(/\/$/, "")}${path}`, {
+      ...init,
+      headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    });
+  } catch (error) {
+    throw new ApiError(
+      "BACKEND_API_UNREACHABLE",
+      "백엔드 API에 연결할 수 없습니다. 백엔드 실행 상태와 VITE_API_BASE_URL을 확인해주세요.",
+      { path },
+    );
+  }
+  let body: { error?: { code: string; message: string; details?: Record<string, unknown> } };
+  try {
+    body = (await response.json()) as { error?: { code: string; message: string; details?: Record<string, unknown> } };
+  } catch (error) {
+    throw new ApiError("API_INVALID_RESPONSE", "백엔드가 JSON 응답을 반환하지 않았습니다.", { path });
+  }
   if (!response.ok) {
     throw new ApiError(body.error?.code ?? "API_ERROR", body.error?.message ?? "API 오류", body.error?.details);
   }
   return body as T;
 }
-

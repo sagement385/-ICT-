@@ -5,8 +5,10 @@ from typing import Any, Protocol
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.errors import ApplicationError
-from app.modules.hospital.models import Hospital
+from app.integrations.naver_maps.directions_client import NaverDirectionsClient
+from app.modules.hospital.models import Hospital, HospitalRealtimeStatus
 from app.modules.hospital.repository import HospitalRepository
 from app.modules.patient.repository import PatientRepository
 from app.modules.patient.schemas import (
@@ -22,6 +24,7 @@ from app.modules.recommendation.policy_repository import RecommendationPolicyRep
 from app.modules.recommendation.ranking_service import RankingService
 from app.modules.recommendation.schemas import RecommendationResultResponse
 from app.modules.recommendation.score_calculator import ScoreCalculator
+from app.modules.routing.provider import NaverRoutingProvider
 from app.modules.routing.schemas import RouteQuery, RouteSnapshotData
 
 
@@ -37,6 +40,38 @@ class RouteDataProvider(Protocol):
 
     async def get_route(self, query: RouteQuery) -> RouteSnapshotData:
         """Fetch a route snapshot from a configured provider."""
+
+
+class DatabaseRealtimeStatusProvider:
+    """Load the latest source-backed realtime rows linked to hospitals."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def load(self, hospital_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Return persisted status rows and fail closed when none are linked."""
+
+        statement = select(HospitalRealtimeStatus).where(
+            HospitalRealtimeStatus.hospital_id.in_(hospital_ids)
+        )
+        rows = list((await self.session.execute(statement)).scalars())
+        if not rows:
+            raise ApplicationError(
+                code="HOSPITAL_REALTIME_STATUS_UNAVAILABLE",
+                message="동기화된 병원 실시간 상태가 없습니다.",
+                details={"hospital_count": len(hospital_ids)},
+            )
+        return {
+            row.hospital_id: {
+                "acceptance_status": row.acceptance_status,
+                "available_beds": row.available_beds,
+                "source_name": row.source_name,
+                "source_record_id": row.source_record_id,
+                "source_updated_at": row.source_updated_at,
+                "fetched_at": row.fetched_at,
+            }
+            for row in rows
+        }
 
 
 class RecommendationService:
@@ -60,11 +95,15 @@ class RecommendationService:
         self.feature_builder = feature_builder or FeatureBuilder()
         self.score_calculator = score_calculator or ScoreCalculator()
         self.ranking_service = ranking_service or RankingService()
-        self.realtime_provider = realtime_provider
-        self.route_provider = route_provider
+        self.realtime_provider: RealtimeStatusProvider = (
+            realtime_provider or DatabaseRealtimeStatusProvider(session)
+        )
+        self.route_provider: RouteDataProvider = route_provider or NaverRoutingProvider(
+            NaverDirectionsClient()
+        )
 
     async def run(self, incident_id: str, limit: int) -> RecommendationResultResponse:
-        """Execute patient -> hospital -> realtime -> route -> policy -> score workflow."""
+        """Execute the workflow with policy preflight before costly external calls."""
 
         record = await self.patient_repository.get_case(incident_id)
         if record is None:
@@ -86,6 +125,17 @@ class RecommendationService:
                 details={},
             )
 
+        hospitals = self.candidate_filter.filter(patient, hospitals, None)
+        if not hospitals:
+            raise ApplicationError(
+                code="HOSPITAL_CANDIDATES_EMPTY",
+                message="설정된 반경 안에 좌표가 있는 병원이 없습니다.",
+                status_code=503,
+                details={"radius_km": get_settings().candidate_radius_km},
+            )
+
+        # Do not spend realtime or routing quota when the run cannot be scored.
+        policy = await self.policy_repository.get_active_policy()
         hospital_ids = [hospital.hospital_id for hospital in hospitals]
         if self.realtime_provider is None:
             raise ApplicationError(
@@ -103,7 +153,6 @@ class RecommendationService:
             )
         route_data = await self._load_routes(patient, hospitals)
 
-        policy = await self.policy_repository.get_active_policy()
         candidates = self.candidate_filter.filter(patient, hospitals, policy)
         features = self.feature_builder.build(patient, candidates, route_data, realtime_status)
         scored = self.score_calculator.calculate(features, policy.weights)

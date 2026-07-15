@@ -2,6 +2,7 @@
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.modules.hospital.repository import HospitalRepository
 from app.modules.hospital.schemas import DataFreshness, HospitalLocation, HospitalResponse
 from app.modules.hospital.validator import validate_hospital_record
@@ -43,3 +44,22 @@ class HospitalService:
                 reason=None if observed_at else "source_updated_at이 없습니다.",
             ),
         )
+
+    async def list_nearby(
+        self,
+        latitude: float,
+        longitude: float,
+        radius_km: float | None = None,
+    ) -> list[HospitalResponse]:
+        """Return source-backed nearby hospitals without ranking or fabricated scores."""
+
+        selected_radius = radius_km or get_settings().candidate_radius_km
+        if not 5.0 <= selected_radius <= 10.0:
+            raise ValueError("radius_km must be between 5 and 10")
+        hospitals = await self.repository.list_nearby(latitude, longitude, selected_radius)
+        responses: list[HospitalResponse] = []
+        for hospital in hospitals:
+            response = await self.get(hospital.hospital_id)
+            if response is not None:
+                responses.append(response)
+        return responses

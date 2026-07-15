@@ -1,6 +1,6 @@
 """Hospital lookup endpoints."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
@@ -9,6 +9,18 @@ from app.modules.hospital.schemas import HospitalResponse
 from app.modules.hospital.service import HospitalService
 
 router = APIRouter(prefix="/hospitals", tags=["hospitals"])
+
+
+@router.get("", response_model=list[HospitalResponse])
+async def list_nearby_hospitals(
+    latitude: float = Query(ge=-90, le=90),
+    longitude: float = Query(ge=-180, le=180),
+    radius_km: float = Query(default=10.0, ge=5.0, le=10.0),
+    session: AsyncSession = Depends(get_db_session),
+) -> list[HospitalResponse]:
+    """Return nearby source-backed hospitals for map display, without ranking."""
+
+    return await HospitalService(session).list_nearby(latitude, longitude, radius_km)
 
 
 @router.get("/{hospital_id}", response_model=HospitalResponse)
@@ -27,4 +39,3 @@ async def get_hospital(
             details={"hospital_id": hospital_id},
         )
     return hospital
-

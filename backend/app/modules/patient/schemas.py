@@ -58,9 +58,32 @@ class PatientEventRequest(BaseModel):
     source: PatientEventSource
 
 
+class PatientAssistRequest(BaseModel):
+    """Free-text chat input for explicit-fact extraction only."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1, max_length=4000)
+
+
+class PatientAssistResponse(BaseModel):
+    """Structured chat assistance that always requires human confirmation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    symptoms: list[PatientSymptomInput]
+    consciousness_status: str | None = None
+    breathing_status: str | None = None
+    bleeding_status: str | None = None
+    urgency_level: str | None = None
+    location_text: str | None = None
+    needs_human_review: bool = True
+    warnings: list[str] = Field(default_factory=list)
+    source: PatientEventSource
+
+
 class PatientCaseResponse(PatientEventRequest):
     """Stored patient event response."""
 
     created_at: datetime
     updated_at: datetime
-

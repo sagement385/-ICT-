@@ -23,6 +23,9 @@ services:
     working_dir: /workspace/backend
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/chungbuk_emergency
+      NAVER_MAP_CLIENT_ID: ${NAVER_MAP_CLIENT_ID:-}
+      NAVER_MAP_CLIENT_SECRET: ${NAVER_MAP_CLIENT_SECRET:-}
+      NAVER_DIRECTIONS_MAX_CALLS: ${NAVER_DIRECTIONS_MAX_CALLS:-30}
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"

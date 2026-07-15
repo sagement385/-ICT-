@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
 from app.api.v1.router import router as api_router
@@ -12,11 +13,19 @@ from app.core.config import get_settings
 from app.core.errors import ApplicationError, error_body
 from app.core.logging import configure_logging
 
-configure_logging(get_settings().log_level)
+settings = get_settings()
+configure_logging(settings.log_level)
 app = FastAPI(
     title="Chungbuk 119 Emergency Decision Support API",
     version="0.1.0",
     description="의료 의사결정을 대체하지 않는 응급환자 병원·경로 지원 API",
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[origin.strip() for origin in settings.cors_allowed_origins.split(",") if origin.strip()],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 app.include_router(api_router)
 

@@ -12,10 +12,12 @@ class HospitalDetailClient(BaseExternalClient):
     dataset_id = "15001699"
 
     def __init__(self, base_url: str | None = None) -> None:
+        settings = get_settings()
         super().__init__(
-            base_url=base_url,
-            api_key=get_settings().public_data_api_key,
+            base_url=base_url or settings.hira_detail_base_url,
+            api_key=settings.public_data_api_key or settings.hira_api_key,
             source_name="public-data-hospital-detail",
+            api_key_param="ServiceKey",
         )
 
     async def fetch_raw(
@@ -26,4 +28,3 @@ class HospitalDetailClient(BaseExternalClient):
         """Fetch raw hospital detail information."""
 
         return await self.request("GET", path, params=params)
-
