@@ -1,14 +1,14 @@
 # 충북 119 AI 기반 응급환자 병원 추천 및 이송 경로 지원 시스템
 
-충북 지역 응급환자에 대해 음성에서 추출한 환자 상태, 병원 역량, 실시간 수용 가능 여부, 실제 자동차 이동시간을 한 화면에서 확인하도록 돕는 의사결정 지원 시스템의 초기 골격입니다.
+충북 지역 응급환자에 대해 사람이 확인한 환자 상태, 출처가 확인된 병원 정보, 실시간 데이터의 가용 여부, 실제 자동차 이동시간을 한 화면에서 확인하도록 돕는 의사결정 지원 MVP입니다. 음성 AI가 준비되기 전에는 단계별 채팅 입력을 사용합니다.
 
 이 프로젝트는 의료진이나 구급대원의 판단을 대체하지 않습니다. 실제 의료 기준·병원 수용 상태·운전 판단을 시스템이 대신 결정하지 않으며, 데이터가 없거나 오래된 경우 추천을 생성하지 않고 오류 또는 경고를 표시합니다.
 
 ## 데이터 흐름
 
 ```text
-신고자/구급대원 음성
-  -> speech-ai (STT 및 구조화된 patient-event)
+신고자/구급대원 입력(현재: 채팅, 향후: 검증된 speech-ai)
+  -> 사람 검토를 거친 구조화 patient-event
   -> POST /api/v1/patients
   -> raw_ingestion_event + patient_case + patient_symptom
   -> 병원 공공데이터/HIRA 동기화
@@ -53,6 +53,14 @@ uvicorn app.main:app --reload
 
 `GET /api/v1/health`는 DB 없이도 서버 상태를 확인할 수 있습니다. `ready` 및 DB를 사용하는 API는 DB 연결 설정이 없으면 명확한 오류를 반환합니다.
 
+Windows에서 Docker Desktop 가상화가 지원되지 않아도 위 방식으로 실행할 수 있습니다. PostgreSQL은 Windows 서비스로 실행하고 `DATABASE_URL`만 로컬 인스턴스에 맞게 설정합니다. 프론트엔드는 별도 PowerShell에서 실행합니다.
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
 ### 3. Docker Compose
 
 ```powershell
@@ -74,7 +82,7 @@ cd backend
 alembic upgrade head
 ```
 
-초기 마이그레이션은 테이블만 생성합니다. 운영 병원·환자·정책·가중치 데이터는 자동 삽입하지 않습니다.
+마이그레이션은 스키마만 변경합니다. 운영 병원·환자·정책·가중치 데이터는 자동 삽입하지 않습니다.
 
 ### 5. 테스트와 품질 검사
 
@@ -97,23 +105,32 @@ npm run build
 
 - FastAPI health/ready 및 기본 도메인 API 라우터
 - Pydantic v2 요청 검증과 공통 오류 응답(`request_id` 포함)
-- SQLAlchemy 2 모델과 Alembic 초기 테이블 마이그레이션
+- SQLAlchemy 2 모델과 additive Alembic migration(`0001`~`0003`)
 - 환자·병원 repository/service 경계
-- 추천 정책·가중치 조회 경계와 미설정 오류
+- 중복 환자 409 처리, 원본 이벤트 및 입력 출처 보존
+- HIRA 충북 병원 기본정보와 실제 샘플로 확인된 진료과·전문의·의료장비 일부 정규화
+- NEMC 원본 수집과 보수적 병원 매칭(의미 미확인 상태값은 null 유지)
+- DB 정책을 해석하는 특징값·점수·순위·저장·최근 결과 파이프라인
+- 활성 정책 또는 가중치가 없을 때 503으로 닫히는 추천 API
+- Naver Directions/Geocoding 연동, 부분 실패 처리, 경로 snapshot·출처 저장
+- 데이터 최신성 `fresh`/`stale`/`unknown`/`unavailable` 구분
 - 외부 API 공통 클라이언트, 재시도·timeout·request id·raw 응답 저장 구조
-- AI-Hub/HIRA/공공데이터/ITS/Naver 연동 인터페이스
+- Gemini를 이용한 명시 사실 추출 보조와 사람 확인 단계
+- AI-Hub/ITS 연동 인터페이스
 - 팀 간 JSON Schema
-- 실제 데이터가 없을 때 가짜 마커·가짜 추천을 표시하지 않는 프론트엔드 상태
-- 테스트 및 GitHub Actions 골격
+- 후보 병원과 승인된 추천 결과를 구분하고 오류·재시도·지도 인증 안내를 제공하는 프론트엔드
+- 테스트 및 GitHub Actions
 
 ## 아직 구현하지 않은 기능
 
 - 실제 STT 모델과 의료 엔터티 추출 모델
 - 승인된 AI-Hub 원본 데이터의 전처리 파이프라인
-- HIRA·공공데이터·ITS·Naver 인증 및 실제 호출
-- 실제 응답 샘플에 근거한 parser/normalizer/validator 완성
-- 의학적 후보 제외 기준, 정책 가중치, 점수 공식
-- 병원 seed, 실시간 수용 가능 여부, 실제 경로·이동시간
+- 승인된 실제 STT/AI-Hub 데이터 처리
+- ITS 표준 노드·링크 파일 및 국토교통부 교통 API parser
+- HIRA 시설·병상 등 의미가 아직 확인되지 않은 상세 필드 정규화
+- NEMC 상태 코드의 공식 의미를 반영한 수용 가능 여부·가용병상 정규화
+- 의료진이 승인한 후보 제외 기준, 활성 추천 정책 및 가중치
+- 운영 배포 환경의 Naver Web Dynamic Map 콘솔 origin 등록 검증
 - 운영용 인증/권한/감사 정책
 
 외부 API 키가 없으면 서버 자체는 시작할 수 있으나 해당 기능 호출 시 `EXTERNAL_SERVICE_NOT_CONFIGURED` 또는 기능별 설정 오류로 HTTP 503을 반환합니다. 추천 정책이 없으면 `RECOMMENDATION_POLICY_NOT_CONFIGURED`로 중단합니다.
@@ -123,7 +140,7 @@ npm run build
 - 운영 데이터와 API 응답을 코드에 하드코딩하지 않습니다.
 - 추천 가중치는 코드가 아니라 `recommendation_policy`, `recommendation_weight`에서 읽습니다.
 - 외부 원본 payload와 출처·시각·스키마 버전을 추적합니다.
-- 최신성을 확인하지 못한 데이터는 stale 경고로 표시합니다.
+- 최신성을 확인하지 못한 데이터는 `unknown`, 데이터 자체가 없으면 `unavailable`로 표시합니다.
 - 테스트 데이터는 각 프로젝트의 `tests/fixtures/` 아래에만 둡니다.
 - 이 시스템은 의료 의사결정 보조 도구이며, 최종 판단은 의료진·구급대원이 합니다.
 

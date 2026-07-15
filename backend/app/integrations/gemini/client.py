@@ -71,6 +71,7 @@ class GeminiClient(BaseExternalClient):
             source_name="gemini",
             api_key_param=None,
             timeout_seconds=settings.gemini_timeout_seconds,
+            base_url_setting_name="GEMINI_BASE_URL",
         )
         self.model = settings.gemini_model
 

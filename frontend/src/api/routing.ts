@@ -22,6 +22,11 @@ export type RouteSnapshot = {
   traffic_summary: string | null;
   fetched_at: string;
   path: Array<[number, number]> | null;
+  source_name: string;
+  source_record_id: string | null;
+  raw_payload_id: string | null;
+  schema_version: string;
+  source_metadata: Record<string, unknown>;
 };
 
 export type RouteDestination = {
@@ -52,11 +57,12 @@ export function testRoute(query: RouteQuery): Promise<RouteSnapshot> {
 }
 
 export function getHospitalRoutes(
+  incidentId: string,
   origin: Pick<RouteQuery, "origin_latitude" | "origin_longitude">,
   destinations: RouteDestination[],
 ): Promise<RouteBatchResult> {
   return requestJson<RouteBatchResult>("/api/v1/routing/batch", {
     method: "POST",
-    body: JSON.stringify({ ...origin, destinations }),
+    body: JSON.stringify({ incident_id: incidentId, ...origin, destinations }),
   });
 }

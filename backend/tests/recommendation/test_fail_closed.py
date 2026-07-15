@@ -1,4 +1,4 @@
-"""Tests for recommendation stages that must remain fail-closed."""
+"""Tests for recommendation stages that remain policy controlled."""
 
 import pytest
 
@@ -8,17 +8,16 @@ from app.modules.recommendation.score_calculator import ScoreCalculator
 
 
 def test_feature_builder_does_not_invent_medical_features() -> None:
-    """Feature generation stops until approved feature definitions exist."""
+    """An empty source set produces no synthetic hospital features."""
 
-    with pytest.raises(ApplicationError) as error:
-        FeatureBuilder().build(  # type: ignore[arg-type]
-            patient={},
-            hospitals=[],
-            route_data={},
-            realtime_status={},
-        )
+    features = FeatureBuilder().build(  # type: ignore[arg-type]
+        patient={},
+        hospitals=[],
+        route_data={},
+        realtime_status={},
+    )
 
-    assert error.value.code == "RECOMMENDATION_FEATURES_NOT_IMPLEMENTED"
+    assert features == {}
 
 
 def test_score_calculator_does_not_apply_default_weights() -> None:
@@ -27,5 +26,4 @@ def test_score_calculator_does_not_apply_default_weights() -> None:
     with pytest.raises(ApplicationError) as error:
         ScoreCalculator().calculate(features={}, weights={})
 
-    assert error.value.code == "RECOMMENDATION_SCORING_NOT_IMPLEMENTED"
-
+    assert error.value.code == "RECOMMENDATION_POLICY_NOT_CONFIGURED"

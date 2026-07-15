@@ -14,9 +14,8 @@ export type Hospital = {
   schema_version: string;
   source_updated_at: string | null;
   freshness: {
-    status: "fresh" | "stale" | "unknown";
+    status: "fresh" | "stale" | "unknown" | "unavailable";
     observed_at: string | null;
     reason: string | null;
   };
 };
-

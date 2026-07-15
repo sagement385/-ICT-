@@ -20,6 +20,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+  "aiosqlite>=0.20,<1",
   "jsonschema>=4.23,<5",
   "mypy>=1.11,<2",
   "pytest>=8.3,<9",

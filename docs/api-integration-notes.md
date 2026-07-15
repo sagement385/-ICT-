@@ -10,7 +10,7 @@
   - 확인 필드: `ykiho`, `yadmNm`, `addr`, `telno`, `XPos`, `YPos`, `clCd`, `clCdNm`
 - HIRA 상세정보: `https://apis.data.go.kr/B551182/MadmDtlInfoService2.8`
   - 기본목록의 `ykiho`를 사용한다.
-  - 우선 연계 대상: `getEqpInfo2.8`, `getSpclDiagInfo2.8`, `getSpcSbjtSdrInfo2.8`, `getDgsbjtInfo2.8`, `getDtlInfo2.8`
+  - 실제 확인 endpoint: `getEqpInfo2.8`, `getSpclDiagInfo2.8`, `getSpcSbjtSdrInfo2.8`, `getDgsbjtInfo2.8`, `getMedOftInfo2.8`, `getSpclHospAsgFldList2.8`, `getDtlInfo2.8`
 - 국립중앙의료원 실시간 응급실 정보: `https://apis.data.go.kr/B552657/ErmctInfoInqireService/getEmrrmRltmUsefulSckbdInfoInqire`
   - 확인 필드: `hpid`, `dutyName`, `hvidate` 및 원본 상태 필드
   - 상태 코드 의미는 추측하지 않고 raw payload로 보존한다.
@@ -25,7 +25,9 @@
 
 - HIRA 충북 기본목록: HTTP 200, 페이지 메타데이터와 샘플 파싱 성공
 - 국립중앙의료원 실시간 응급실 정보: HTTP 200, 샘플 파싱 성공
-- 네이버 Directions: 현재 인증정보로 HTTP 401. 코드에서는 인증오류를 그대로 표시하고 이동시간을 생성하지 않는다.
+- 네이버 Directions: 인증 헤더 수정 후 실제 경로 응답과 화면 후보 배치 호출 성공을 확인했다. 일부 목적지 실패 시 성공 경로만 반환하고 실패 목록을 별도로 보존한다.
+- HIRA 의료장비: `getMedOftInfo2.8`의 `oftCd`, `oftCdNm`, `oftCnt`를 실제 응답으로 확인하고 2026-07-16 제어된 1건 동기화에서 DB 정규화를 확인했다.
+- Naver Web Dynamic Map: Maps JavaScript v3의 현재 인증 파라미터인 `ncpKeyId`를 사용한다. 콘솔에 현재 host를 포트·경로 없이 등록해야 하며 브라우저 재검증은 콘솔 설정에 의존한다.
 
 ## 현재 구현 원칙
 

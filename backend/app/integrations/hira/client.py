@@ -14,19 +14,27 @@ class HiraClient(BaseExternalClient):
         "getSpclDiagInfo2.8",
         "getSpcSbjtSdrInfo2.8",
         "getDgsbjtInfo2.8",
+        "getMedOftInfo2.8",
+        "getSpclHospAsgFldList2.8",
         "getDtlInfo2.8",
         "getTrnsprtInfo2.8",
         "getNursigGrdInfo2.8",
         "getEtcHstInfo2.8",
     )
 
-    def __init__(self, base_url: str | None = None) -> None:
+    def __init__(
+        self,
+        base_url: str | None = None,
+        base_url_setting_name: str = "HIRA_BASE_URL",
+    ) -> None:
         settings = get_settings()
         super().__init__(
             base_url=base_url or settings.hira_base_url,
             api_key=settings.hira_api_key or settings.public_data_api_key,
             source_name="hira",
             api_key_param="ServiceKey",
+            base_url_setting_name=base_url_setting_name,
+            api_key_setting_names=("HIRA_API_KEY", "PUBLIC_DATA_API_KEY"),
         )
 
     async def fetch_raw(
@@ -66,7 +74,10 @@ class HiraClient(BaseExternalClient):
         """Fetch one HIRA detail endpoint for a basic-list ykiho identifier."""
 
         settings = get_settings()
-        detail_client = HiraClient(base_url=settings.hira_detail_base_url)
+        detail_client = HiraClient(
+            base_url=settings.hira_detail_base_url,
+            base_url_setting_name="HIRA_DETAIL_BASE_URL",
+        )
         return await detail_client.fetch_raw(
             f"/{endpoint.lstrip('/')}",
             params={"ykiho": ykiho, "pageNo": page_no, "numOfRows": num_of_rows, "_type": "xml"},

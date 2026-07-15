@@ -1,11 +1,15 @@
 """Routing provider status for the test dashboard."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.database import get_db_session
 from app.core.errors import ApplicationError
 from app.integrations.naver_maps.directions_client import NaverDirectionsClient
+from app.modules.patient.models import PatientCase
 from app.modules.routing.provider import NaverRoutingProvider
+from app.modules.routing.repository import RouteSnapshotRepository
 from app.modules.routing.schemas import (
     RouteBatchError,
     RouteBatchItem,
@@ -42,9 +46,21 @@ async def test_route(query: RouteQuery) -> RouteSnapshotData:
 
 
 @router.post("/batch", response_model=RouteBatchResponse)
-async def batch_routes(query: RouteBatchQuery) -> RouteBatchResponse:
+async def batch_routes(
+    query: RouteBatchQuery,
+    session: AsyncSession = Depends(get_db_session),
+) -> RouteBatchResponse:
     """Fetch real routes for visible map destinations without fake fallbacks."""
 
+    if query.incident_id is not None:
+        patient_exists = await session.get(PatientCase, query.incident_id)
+        if patient_exists is None:
+            raise ApplicationError(
+                code="PATIENT_NOT_FOUND",
+                message="경로를 저장할 환자 사건을 찾을 수 없습니다.",
+                status_code=404,
+                details={"incident_id": query.incident_id},
+            )
     provider = NaverRoutingProvider()
     routes: list[RouteBatchItem] = []
     errors: list[RouteBatchError] = []
@@ -67,4 +83,9 @@ async def batch_routes(query: RouteBatchQuery) -> RouteBatchResponse:
             )
             continue
         routes.append(RouteBatchItem(hospital_id=destination.hospital_id, route=route))
+    if query.incident_id is not None and routes:
+        repository = RouteSnapshotRepository(session)
+        for item in routes:
+            await repository.add(query.incident_id, item.hospital_id, item.route)
+        await session.commit()
     return RouteBatchResponse(routes=routes, errors=errors)

@@ -77,7 +77,9 @@ class PatientAssistResponse(BaseModel):
     bleeding_status: str | None = None
     urgency_level: str | None = None
     location_text: str | None = None
+    extracted_by_ai: bool = True
     needs_human_review: bool = True
+    confidence: float | None = Field(default=None, ge=0, le=1)
     warnings: list[str] = Field(default_factory=list)
     source: PatientEventSource
 

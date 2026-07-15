@@ -63,13 +63,21 @@ def _parse_xml(payload: Any) -> ElementTree.Element:
             details={},
         )
     try:
-        return ElementTree.fromstring(payload)
+        root = ElementTree.fromstring(payload)
     except ElementTree.ParseError as error:
         raise ApplicationError(
             code="NEMC_RESPONSE_PARSE_FAILED",
             message="국립중앙의료원 응답 XML을 해석할 수 없습니다.",
             details={},
         ) from error
+    result_code = root.findtext(".//header/resultCode")
+    if result_code is not None and result_code != "00":
+        raise ApplicationError(
+            code="NEMC_PROVIDER_ERROR",
+            message="국립중앙의료원 API가 성공이 아닌 결과 코드를 반환했습니다.",
+            details={"provider_code": result_code},
+        )
+    return root
 
 
 def _parse_timestamp(value: str | None) -> datetime | None:

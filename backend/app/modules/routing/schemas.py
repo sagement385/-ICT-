@@ -1,6 +1,7 @@
 """Provider-neutral route contracts; external response fields stay raw until verified."""
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -27,6 +28,11 @@ class RouteSnapshotData(BaseModel):
     traffic_summary: str | None = None
     fetched_at: datetime
     path: list[tuple[float, float]] | None = None
+    source_name: str
+    source_record_id: str | None = None
+    raw_payload_id: str | None = None
+    schema_version: str
+    source_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class RouteDestination(BaseModel):
@@ -44,6 +50,7 @@ class RouteBatchQuery(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    incident_id: str | None = Field(default=None, min_length=1)
     origin_latitude: float = Field(ge=-90, le=90)
     origin_longitude: float = Field(ge=-180, le=180)
     destinations: list[RouteDestination] = Field(min_length=1, max_length=10)

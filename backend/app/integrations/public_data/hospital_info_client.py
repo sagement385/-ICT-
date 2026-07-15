@@ -18,6 +18,8 @@ class HospitalInfoClient(BaseExternalClient):
             api_key=settings.public_data_api_key or settings.hira_api_key,
             source_name="public-data-hospital-info",
             api_key_param="ServiceKey",
+            base_url_setting_name="HIRA_BASE_URL",
+            api_key_setting_names=("PUBLIC_DATA_API_KEY", "HIRA_API_KEY"),
         )
 
     async def fetch_raw(

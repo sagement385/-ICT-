@@ -3,6 +3,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.freshness import evaluate_freshness
 from app.modules.hospital.repository import HospitalRepository
 from app.modules.hospital.schemas import DataFreshness, HospitalLocation, HospitalResponse
 from app.modules.hospital.validator import validate_hospital_record
@@ -22,7 +23,10 @@ class HospitalService:
             return None
         validate_hospital_record(hospital)
         observed_at = hospital.source_updated_at
-        freshness_status = "unknown" if observed_at is None else "fresh"
+        freshness = evaluate_freshness(
+            observed_at,
+            get_settings().hospital_data_max_age_seconds,
+        )
         return HospitalResponse(
             hospital_id=hospital.hospital_id,
             hospital_name=hospital.hospital_name,
@@ -39,9 +43,9 @@ class HospitalService:
             schema_version=hospital.schema_version,
             source_updated_at=observed_at,
             freshness=DataFreshness(
-                status=freshness_status,
-                observed_at=observed_at,
-                reason=None if observed_at else "source_updated_at이 없습니다.",
+                status=freshness.status,
+                observed_at=freshness.observed_at,
+                reason=freshness.reason,
             ),
         )
 

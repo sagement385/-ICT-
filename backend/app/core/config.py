@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     hira_api_key: str | None = Field(default=None, alias="HIRA_API_KEY")
     nemc_api_key: str | None = Field(default=None, alias="NEMC_API_KEY")
     molit_traffic_api_key: str | None = Field(default=None, alias="MOLIT_TRAFFIC_API_KEY")
+    molit_traffic_base_url: str | None = Field(default=None, alias="MOLIT_TRAFFIC_BASE_URL")
     naver_map_client_id: str | None = Field(default=None, alias="NAVER_MAP_CLIENT_ID")
     naver_map_client_secret: str | None = Field(default=None, alias="NAVER_MAP_CLIENT_SECRET")
     gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
@@ -68,6 +69,10 @@ class Settings(BaseSettings):
     its_node_link_data_root: str | None = Field(default=None, alias="ITS_NODE_LINK_DATA_ROOT")
     backend_api_base_url: str | None = Field(default=None, alias="BACKEND_API_BASE_URL")
     route_data_max_age_seconds: int | None = Field(default=None, alias="ROUTE_DATA_MAX_AGE_SECONDS")
+    hospital_data_max_age_seconds: int | None = Field(
+        default=None,
+        alias="HOSPITAL_DATA_MAX_AGE_SECONDS",
+    )
     hospital_status_max_age_seconds: int | None = Field(default=None, alias="HOSPITAL_STATUS_MAX_AGE_SECONDS")
     chungbuk_sido_code: str = Field(default="330000", alias="CHUNGBUK_SIDO_CODE")
     candidate_radius_km: float = Field(default=10.0, ge=5.0, le=10.0, alias="CANDIDATE_RADIUS_KM")
@@ -75,6 +80,12 @@ class Settings(BaseSettings):
         default=None,
         ge=1,
         alias="NAVER_DIRECTIONS_MAX_CALLS",
+    )
+    recommendation_route_candidate_limit: int = Field(
+        default=10,
+        ge=1,
+        le=50,
+        alias="RECOMMENDATION_ROUTE_CANDIDATE_LIMIT",
     )
 
 

@@ -22,6 +22,8 @@ class NemcEmergencyClient(BaseExternalClient):
             api_key=settings.nemc_api_key or settings.public_data_api_key,
             source_name="nemc-emergency-medical",
             api_key_param="serviceKey",
+            base_url_setting_name="NEMC_BASE_URL",
+            api_key_setting_names=("NEMC_API_KEY", "PUBLIC_DATA_API_KEY"),
         )
 
     async def fetch_raw(

@@ -1,5 +1,25 @@
 # 개발 런북
 
+## Windows native 실행
+
+Docker Desktop 가상화가 없는 개발 PC에서는 PostgreSQL Windows 서비스, Python 3.12, Node.js를 직접 사용합니다.
+
+```powershell
+Copy-Item .env.example .env
+cd backend
+pip install -e ".[dev]"
+alembic upgrade head
+uvicorn app.main:app --reload
+```
+
+별도 PowerShell에서 다음을 실행합니다.
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
 ## 서버가 뜨지 않을 때
 
 - `.env`가 존재하는지 확인합니다.
@@ -37,6 +57,12 @@ python scripts/sync_hospital_data.py --limit 1 --page-size 100
 python scripts/sync_hospital_detail_data.py --limit 1 --endpoint getDgsbjtInfo2.8
 ```
 
+의료장비는 실제 필드를 확인한 endpoint로 다음처럼 제어된 검증을 할 수 있습니다.
+
+```powershell
+python scripts/sync_hospital_detail_data.py --limit 1 --endpoint getMedOftInfo2.8
+```
+
 상세 API에서 확인되지 않은 시설·병상·인력 필드는 임의로 병원 테이블에 채우지 않고 `raw_ingestion_event`의 원본 payload로 보존합니다.
 
 ## DB 없이 외부 API 확인
@@ -48,3 +74,26 @@ python scripts/validate_data_sources.py --source all
 ```
 
 Naver Directions는 `POST /api/v1/routing/test` 또는 지도용 `POST /api/v1/routing/batch`로 실제 거리와 소요시간을 확인합니다. `NAVER_DIRECTIONS_MAX_CALLS`가 비어 있으면 애플리케이션 자체 제한 없이 provider quota와 429 응답만 따릅니다. 지도 배치는 한 번에 최대 10개 목적지만 요청합니다.
+
+## Naver Web Dynamic Map 인증 실패
+
+프론트엔드 오류 안내에 표시된 현재 host를 Naver Cloud Maps 애플리케이션의 Web 서비스 URL에 등록합니다.
+
+- Web Dynamic Map이 선택되어 있어야 합니다.
+- `http://localhost`와 `http://127.0.0.1`은 서로 다른 등록값입니다.
+- 공식 콘솔 안내에 따라 포트와 URI path는 제외합니다.
+- 프론트엔드의 `VITE_NAVER_MAP_CLIENT_ID`가 해당 애플리케이션의 Key ID와 일치해야 합니다.
+- 변경 후 개발 서버를 다시 시작하고 브라우저 캐시를 새로고침합니다.
+
+SDK 인증 실패 시 코드는 가짜 지도나 마커를 표시하지 않습니다. JavaScript SDK는 현재 파라미터 `ncpKeyId`를 사용합니다.
+
+## 추천 정책 문서 검증
+
+정책 초안은 검증만 가능하며 자동 활성화되지 않습니다.
+
+```powershell
+cd backend
+python scripts/create_policy.py --file ../docs/recommendation-policy-draft.json --validate-only
+```
+
+의료진 승인·근거 문서·모든 factor 값이 확보되기 전에는 `--insert --activate`를 실행하지 않습니다.

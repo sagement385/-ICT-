@@ -26,9 +26,12 @@ def test_route_api_returns_provider_snapshot(monkeypatch: pytest.MonkeyPatch) ->
                 provider_name=fixture["response"]["provider_name"],
                 distance_meters=fixture["response"]["distance_meters"],
                 duration_seconds=fixture["response"]["duration_seconds"],
-                traffic_summary=fixture["response"]["traffic_summary"],
-                fetched_at=datetime(2026, 1, 1, tzinfo=UTC),
-            )
+                    traffic_summary=fixture["response"]["traffic_summary"],
+                    fetched_at=datetime(2026, 1, 1, tzinfo=UTC),
+                    source_name="TEST_PROVIDER",
+                    source_record_id="TEST_ROUTE_001",
+                    schema_version="test-route.v1",
+                )
 
     monkeypatch.setattr("app.api.v1.routing.NaverRoutingProvider", FakeProvider)
     response = TestClient(app).post("/api/v1/routing/test", json=fixture["query"])
@@ -66,6 +69,9 @@ def test_route_batch_returns_successes_and_explicit_failures(monkeypatch: pytest
                 traffic_summary="TEST_TRAFFIC",
                 fetched_at=datetime(2026, 1, 1, tzinfo=UTC),
                 path=[(0.0, 0.0), (1.0, 1.0)],
+                source_name="TEST_PROVIDER",
+                source_record_id="TEST_ROUTE_001",
+                schema_version="test-route.v1",
             )
 
     monkeypatch.setattr("app.api.v1.routing.NaverRoutingProvider", FakeProvider)

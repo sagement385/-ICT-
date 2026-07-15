@@ -6,12 +6,19 @@ import json
 import math
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core.database import get_session_factory
 from app.modules.recommendation.models import RecommendationPolicy, RecommendationWeight
+from app.modules.recommendation.policy_repository import (
+    SUPPORTED_DIRECTIONS,
+    SUPPORTED_MISSING_BEHAVIORS,
+    SUPPORTED_NORMALIZATIONS,
+    SUPPORTED_SOURCE_FIELDS,
+    SUPPORTED_STALE_BEHAVIORS,
+)
 
 
 class PolicyFactorDocument(BaseModel):
@@ -21,6 +28,16 @@ class PolicyFactorDocument(BaseModel):
 
     factor_name: str = Field(min_length=1)
     weight_value: float | None = None
+    enabled: bool = True
+    source_field: str = Field(min_length=1)
+    direction: str = Field(min_length=1)
+    normalization: str = Field(min_length=1)
+    required: bool
+    missing_data_behavior: str = Field(min_length=1)
+    stale_data_behavior: str = Field(min_length=1)
+    hard_exclusion: bool
+    explanation: str | None = None
+    configuration: dict[str, Any] = Field(default_factory=dict)
     requires_approval: bool = True
     source: str = Field(min_length=1)
 
@@ -63,6 +80,72 @@ class PolicyDocument(BaseModel):
             factor.weight_value is None for factor in self.factors
         ):
             raise ValueError("approved policies require a numeric value for every factor")
+        if self.approval_status == "APPROVED":
+            for factor in self.factors:
+                if factor.source_field not in SUPPORTED_SOURCE_FIELDS:
+                    raise ValueError(f"unsupported source_field: {factor.source_field}")
+                if factor.direction not in SUPPORTED_DIRECTIONS:
+                    raise ValueError(f"unsupported direction: {factor.direction}")
+                if factor.normalization not in SUPPORTED_NORMALIZATIONS:
+                    raise ValueError(f"unsupported normalization: {factor.normalization}")
+                if factor.missing_data_behavior not in SUPPORTED_MISSING_BEHAVIORS:
+                    raise ValueError(
+                        f"unsupported missing_data_behavior: {factor.missing_data_behavior}"
+                    )
+                if factor.stale_data_behavior not in SUPPORTED_STALE_BEHAVIORS:
+                    raise ValueError(
+                        f"unsupported stale_data_behavior: {factor.stale_data_behavior}"
+                    )
+                if factor.required and factor.missing_data_behavior == "ignore_factor":
+                    raise ValueError("required factors cannot ignore missing data")
+                if factor.normalization == "min_max":
+                    minimum = factor.configuration.get("minimum")
+                    maximum = factor.configuration.get("maximum")
+                    if (
+                        not isinstance(minimum, (int, float))
+                        or isinstance(minimum, bool)
+                        or not isinstance(maximum, (int, float))
+                        or isinstance(maximum, bool)
+                        or not math.isfinite(float(minimum))
+                        or not math.isfinite(float(maximum))
+                        or float(maximum) <= float(minimum)
+                    ):
+                        raise ValueError(
+                            "min_max factors require finite maximum > minimum"
+                        )
+                if factor.normalization == "categorical_map":
+                    value_map = factor.configuration.get("value_map")
+                    if not isinstance(value_map, dict) or not value_map:
+                        raise ValueError(
+                            "categorical_map factors require a non-empty value_map"
+                        )
+                    if any(
+                        not isinstance(value, (int, float))
+                        or isinstance(value, bool)
+                        or not math.isfinite(float(value))
+                        for value in value_map.values()
+                    ):
+                        raise ValueError("value_map scores must be finite numbers")
+                if factor.hard_exclusion:
+                    condition = factor.configuration.get("exclude_if")
+                    if not isinstance(condition, dict):
+                        raise ValueError("hard_exclusion factors require exclude_if")
+                    if condition.get("operator") not in {
+                        "eq",
+                        "neq",
+                        "lt",
+                        "lte",
+                        "gt",
+                        "gte",
+                        "in",
+                        "not_in",
+                    }:
+                        raise ValueError("exclude_if uses an unsupported operator")
+                    if condition.get("operator") in {"in", "not_in"} and not isinstance(
+                        condition.get("value"),
+                        list,
+                    ):
+                        raise ValueError("in/not_in exclude_if values must be lists")
         return self
 
 
@@ -99,6 +182,16 @@ async def insert_policy(document: PolicyDocument, activate: bool) -> str:
                     policy_id=policy.id,
                     factor_name=factor.factor_name,
                     weight_value=factor.weight_value,
+                    enabled=factor.enabled,
+                    source_field=factor.source_field,
+                    direction=factor.direction,
+                    normalization=factor.normalization,
+                    required=factor.required,
+                    missing_data_behavior=factor.missing_data_behavior,
+                    stale_data_behavior=factor.stale_data_behavior,
+                    hard_exclusion=factor.hard_exclusion,
+                    explanation=factor.explanation,
+                    configuration_json=factor.configuration,
                 )
             )
         await session.commit()

@@ -39,6 +39,8 @@ class BaseExternalClient:
         api_key_param: str | None = "serviceKey",
         timeout_seconds: float = 10.0,
         max_retries: int = 2,
+        base_url_setting_name: str = "BASE_URL",
+        api_key_setting_names: tuple[str, ...] = ("API_KEY",),
     ) -> None:
         self.base_url = base_url
         self.api_key = api_key
@@ -46,6 +48,8 @@ class BaseExternalClient:
         self.api_key_param = api_key_param
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries
+        self.base_url_setting_name = base_url_setting_name
+        self.api_key_setting_names = api_key_setting_names
 
     async def request(
         self,
@@ -114,13 +118,13 @@ class BaseExternalClient:
         raise AssertionError("HTTP retry loop must return or raise")
 
     def _missing_settings(self) -> list[str]:
-        """Describe missing generic client settings without exposing values."""
+        """Describe the exact missing environment settings without exposing values."""
 
         missing: list[str] = []
         if not self.base_url:
-            missing.append("BASE_URL")
+            missing.append(self.base_url_setting_name)
         if self.api_key_param and not self.api_key:
-            missing.append("API_KEY")
+            missing.extend(self.api_key_setting_names)
         return missing
 
     @staticmethod

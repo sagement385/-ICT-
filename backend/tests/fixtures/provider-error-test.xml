@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+  <header>
+    <resultCode>TEST_ERROR_CODE</resultCode>
+    <resultMsg>TEST_ERROR_MESSAGE</resultMsg>
+  </header>
+  <body><items /><totalCount>0</totalCount></body>
+</response>

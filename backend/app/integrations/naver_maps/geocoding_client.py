@@ -19,6 +19,7 @@ class NaverGeocodingClient(BaseExternalClient):
             api_key=settings.naver_map_client_secret,
             source_name="naver-geocoding",
             api_key_param=None,
+            base_url_setting_name="NAVER_GEOCODING_BASE_URL",
         )
         self.client_id = settings.naver_map_client_id
 

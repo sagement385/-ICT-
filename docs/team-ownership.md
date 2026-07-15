@@ -3,7 +3,7 @@
 ## 담당 경계
 
 - 팀원 1: `speech-ai/`, `contracts/patient-event.schema.json`
-- 팀원 2: `backend/app/modules/patient/`, `hospital/`, `recommendation/`, `integrations/hira/`, `integrations/public_data/`, `pipelines/hospital_sync/`, `backend/migrations/`, `backend/scripts/sync_hospital_data.py`, `backend/tests/recommendation/`
+- 팀원 2: `backend/app/modules/patient/`, `hospital/`, `recommendation/`, `integrations/hira/`, `integrations/public_data/`, `pipelines/hospital_sync/`, `backend/migrations/`, 병원·정책 동기화 script, `backend/tests/recommendation/`
 - 팀원 3: `frontend/`, `backend/app/modules/routing/`, `backend/app/integrations/naver_maps/`, `backend/app/integrations/its/`
 - 팀원 4: `backend/app/main.py`, `backend/app/core/`, `backend/app/api/`, `contracts/`, `infra/`, `docker-compose.yml`, `.github/`, `docs/`
 
@@ -19,4 +19,5 @@
 - repository는 DB 조회·저장만 담당합니다.
 - service는 업무 흐름을 담당합니다.
 - integration client는 외부 API 통신만 담당합니다.
-
+- 정책 초안은 의료 검토 전 활성화하지 않으며, 코드에 임의 가중치나 의료 제외 기준을 추가하지 않습니다.
+- 팀원 2와 3이 함께 사용하는 경로 결과는 routing schema와 `route_snapshot` 계약으로 연결하고 상대 모듈 내부를 직접 참조하지 않습니다.

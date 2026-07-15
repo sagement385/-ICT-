@@ -18,6 +18,7 @@ class NaverDirectionsClient(BaseExternalClient):
             api_key=settings.naver_map_client_secret,
             source_name="naver-directions",
             api_key_param=None,
+            base_url_setting_name="NAVER_DIRECTIONS_BASE_URL",
         )
         self.client_id = settings.naver_map_client_id
         self.budget = get_shared_budget("naver-directions5", settings.naver_directions_max_calls)

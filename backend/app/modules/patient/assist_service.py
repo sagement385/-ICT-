@@ -46,7 +46,9 @@ class PatientAssistService:
             bleeding_status=extraction.bleeding_status,
             urgency_level=urgency_level,
             location_text=extraction.location_text,
+            extracted_by_ai=True,
             needs_human_review=True,
+            confidence=None,
             warnings=warnings,
             source=PatientEventSource(
                 model_name="gemini-chat-extractor",

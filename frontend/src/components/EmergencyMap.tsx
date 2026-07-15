@@ -43,19 +43,41 @@ export default function EmergencyMap({ patient, hospitals, recommendation, route
       setMapLoaded(false);
       return;
     }
+    const registeredHost = `${window.location.protocol}//${window.location.hostname}`;
+    const authFailure = (): void => {
+      setMapLoaded(false);
+      setMapError(
+        `네이버 지도 인증에 실패했습니다. Maps Application에서 Web Dynamic Map을 선택하고 Web 서비스 URL에 ${registeredHost}을 포트와 경로 없이 등록한 뒤 새로고침해주세요.`,
+      );
+    };
+    window.navermap_authFailure = authFailure;
+    setMapError(null);
     if (window.naver?.maps) {
       setMapLoaded(true);
-      return;
+      return () => {
+        if (window.navermap_authFailure === authFailure) window.navermap_authFailure = undefined;
+      };
     }
 
-    const existingScript = document.getElementById("naver-map-sdk");
-    const script = existingScript instanceof HTMLScriptElement
+    const foundScript = document.getElementById("naver-map-sdk");
+    const existingScript = foundScript instanceof HTMLScriptElement
+      && foundScript.src.includes("ncpKeyId=")
+      ? foundScript
+      : null;
+    if (foundScript && existingScript === null) foundScript.remove();
+    const script = existingScript
       ? existingScript
       : document.createElement("script");
     script.id = "naver-map-sdk";
-    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${encodeURIComponent(mapClientId)}`;
+    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(mapClientId)}`;
     script.async = true;
-    script.onload = () => setMapLoaded(true);
+    script.onload = () => {
+      if (window.naver?.maps) {
+        setMapLoaded(true);
+      } else {
+        setMapError("네이버 지도 SDK가 로드됐지만 지도 객체를 초기화할 수 없습니다.");
+      }
+    };
     script.onerror = () => {
       setMapError("네이버 지도 SDK를 불러오지 못했습니다. Web 서비스 URL 등록과 API 권한을 확인해주세요.");
     };
@@ -63,6 +85,7 @@ export default function EmergencyMap({ patient, hospitals, recommendation, route
     return () => {
       script.onload = null;
       script.onerror = null;
+      if (window.navermap_authFailure === authFailure) window.navermap_authFailure = undefined;
     };
   }, [mapClientId]);
 

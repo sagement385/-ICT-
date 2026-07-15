@@ -10,7 +10,9 @@ export type PatientAssistResult = {
   bleeding_status: string | null;
   urgency_level: string | null;
   location_text: string | null;
+  extracted_by_ai: boolean;
   needs_human_review: boolean;
+  confidence: number | null;
   warnings: string[];
   source: { model_name: string; model_version: string };
 };
