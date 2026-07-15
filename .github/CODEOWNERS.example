@@ -1,0 +1,15 @@
+# 실제 계정 대신 팀 역할 placeholder를 사용합니다.
+/speech-ai/ @SPEECH_OWNER
+/contracts/patient-event.schema.json @SPEECH_OWNER @INTEGRATION_OWNER
+/backend/app/modules/patient/ @RECOMMENDATION_OWNER
+/backend/app/modules/hospital/ @RECOMMENDATION_OWNER
+/backend/app/modules/recommendation/ @RECOMMENDATION_OWNER
+/backend/app/modules/routing/ @FRONTEND_OWNER
+/backend/app/integrations/ @RECOMMENDATION_OWNER @FRONTEND_OWNER
+/frontend/ @FRONTEND_OWNER
+/backend/app/core/ @INTEGRATION_OWNER
+/backend/app/api/ @INTEGRATION_OWNER
+/infra/ @INTEGRATION_OWNER
+/.github/ @INTEGRATION_OWNER
+/docs/ @INTEGRATION_OWNER
+

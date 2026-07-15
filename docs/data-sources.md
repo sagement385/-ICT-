@@ -1,0 +1,27 @@
+# 데이터 소스 등록부
+
+아래 표는 2026-07-15에 공식 페이지를 확인한 결과입니다. `실제 응답 샘플 확보 여부`는 공식 문서의 샘플/페이지 확인과 별개로, 팀이 민감정보 제거 후 테스트 fixture로 보관했는지를 구분합니다.
+
+| 데이터 소스명 | URL | 데이터셋 ID | 제공기관 | 인증 방식 | API 키 환경변수명 | 실제 응답 샘플 확보 여부 | 파서 구현 여부 | 갱신 주기 | 마지막 수집 성공 시각 | 비고 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| AI-Hub 위급상황 음성/음향 (고도화) - 119 지능형 신고접수 음성 인식 데이터 | [AI-Hub](https://aihub.or.kr/aihubdata/data/view.do?dataSetSn=71768) | `71768` | 한국지능정보사회진흥원/AI-Hub 및 구축기관 | 신청·승인 후 다운로드/API 이용. 정확한 key 방식 TODO | `AIHUB_API_KEY` (승인 절차 확인 TODO), `AIHUB_DATA_ROOT` | 공식 페이지에 메타데이터와 라벨 JSON 예시 확인. 민감정보 제거 fixture는 아직 없음 | 아니오. 필드 확인 후 parser PR 예정 | 페이지 갱신 2024-10 표시. 운영 수집 주기 TODO | 없음 | 공개 페이지는 오디오·전사·긴급도·증상 구조와 예시를 제공하지만 원본 다운로드 승인 필요 |
+| AI-Hub 의료 분야 음성 데이터 | [AI-Hub](https://aihub.or.kr/aihubdata/data/view.do?dataSetSn=566) | `566` | 한국지능정보사회진흥원/AI-Hub 및 구축기관 | 온라인 안심존·신청 승인 절차 | `AIHUB_API_KEY` (정확한 방식 TODO), `AIHUB_DATA_ROOT` | 페이지에 WAV/TXT/JSON 메타데이터 구조는 확인. 원본 응답 fixture 없음 | 아니오 | 갱신년월 2022-07 표시. 운영 수집 주기 TODO | 없음 | 의료 데이터 접근은 안심존/승인 절차 확인 필요 |
+| 건강보험심사평가원_병원정보서비스 | [공공데이터포털](https://www.data.go.kr/data/15001698/openapi.do) | `15001698` | 건강보험심사평가원 | 활용신청 후 Open API 인증 방식은 명세 확인 TODO | `HIRA_API_KEY` | 아니오. 포털 설명/메타데이터만 확인 | 아니오 | 포털에 실시간 표시 | 없음 | 공식 페이지에 REST/XML 및 요양기관 암호화 식별자 안내가 있음 |
+| 건강보험심사평가원_의료기관별상세정보서비스 | [공공데이터포털](https://www.data.go.kr/data/15001699/openapi.do) | `15001699` | 건강보험심사평가원 | 활용신청 후 Open API 인증 방식은 명세 확인 TODO | `HIRA_API_KEY` | 아니오. 포털 설명/메타데이터만 확인 | 아니오 | 포털에 실시간 표시 | 없음 | 시설·진료과목·장비·특수진료·전문의 수 등 제공 항목은 공식 설명에서 확인했으나 응답 parser는 보류 |
+| 국가교통정보센터 표준 노드·링크 | [ITS 표준노드링크](https://www.its.go.kr/nodelink/nodelinkRef) | TODO: 파일 기준일자/버전 | 국토교통부·국가교통정보센터 | 파일 조회/다운로드 절차 확인 TODO | TODO: 별도 키 필요 여부 확인 | 페이지에 파일 데이터와 제공기간은 확인. 실제 파일 fixture 없음 | 아니오 | 기준일자별 파일. 배포 주기 TODO | 없음 | 노드·링크·회전·중용 정보가 파일로 제공됨 |
+| 국토교통부_교통소통정보 | [공공데이터포털](https://www.data.go.kr/data/15040463/openapi.do) | `15040463` | 국토교통부 | ITS Open API 신청/키 절차 확인 TODO | `MOLIT_TRAFFIC_API_KEY` | 공식 ITS 오픈데이터 페이지에서 XML 응답 예시는 확인. 테스트 fixture 미등록 | 아니오 | 포털에 실시간 표시 | 없음 | JSON/XML, 전국 범위, 링크별 속도·통행시간 관련 설명 확인 |
+| 네이버 지도 Directions 5 | [공식 Directions 문서](https://api.ncloud-docs.com/docs/application-maps-directions5) | TODO: 상품/콘솔 서비스 ID | NAVER Cloud Platform | API Gateway 헤더 기반 인증. 콘솔 발급 정보 확인 필요 | `NAVER_MAP_CLIENT_ID`, `NAVER_MAP_CLIENT_SECRET` | 공식 문서의 응답 예시는 확인. 실제 호출 fixture 미등록 | 아니오 | 요청 시 실시간 교통 반영 | 없음 | `summary.distance`는 m, `summary.duration`은 ms로 문서화되어 있어 parser 구현 시 단위 변환을 명시해야 함 |
+
+## 확인된 샘플과 구현 순서
+
+AI-Hub 119 페이지에는 `audioPath`, `recordId`, 발화 배열, `urgencyLevel`, `address`, `symptom` 등의 구조가 표시되고 예시 라벨 JSON도 있습니다. AI-Hub 의료 분야 페이지에는 WAV/TXT/JSON 및 라벨링 유형이 표시됩니다. HIRA 페이지는 기본/상세 서비스의 제공 범위를 설명하지만 인증된 실제 응답 fixture가 저장소에 없습니다. ITS는 공개 오픈데이터 소개에 XML 예시가 있고, Naver 공식 문서는 Directions 응답 예시를 제공합니다.
+
+따라서 다음 순서를 지킵니다.
+
+1. 승인·인증 후 민감정보를 제거한 원본 샘플을 `backend/tests/fixtures/` 또는 `speech-ai/tests/fixtures/`에 등록
+2. 샘플의 schema version과 source record id 기록
+3. parser와 validator를 fixture 기반으로 구현
+4. 운영 수집 성공 시각과 raw payload id를 DB에 기록
+
+페이지에서 확인되지 않은 인증·갱신·파일 버전은 TODO로 남겼습니다. 추측한 필드명으로 parser를 완성하지 않습니다.
+

@@ -1,0 +1,2 @@
+"""Patient case domain."""
+

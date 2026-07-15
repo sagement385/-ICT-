@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/contracts/recommendation-result.schema.json",
+  "title": "Recommendation Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["incident_id", "recommendation_run_id", "generated_at", "policy", "recommended_hospitals", "warnings"],
+  "properties": {
+    "incident_id": { "type": "string", "minLength": 1 },
+    "recommendation_run_id": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_name", "policy_version"],
+      "properties": {
+        "policy_name": { "type": "string" },
+        "policy_version": { "type": "string" }
+      }
+    },
+    "recommended_hospitals": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rank", "hospital_id", "hospital_name", "location", "total_score", "score_breakdown", "travel_time", "recommendation_reasons", "data_freshness"],
+        "properties": {
+          "rank": { "type": "integer", "minimum": 1 },
+          "hospital_id": { "type": "string" },
+          "hospital_name": { "type": "string" },
+          "location": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["latitude", "longitude", "address"],
+            "properties": {
+              "latitude": { "type": ["number", "null"] },
+              "longitude": { "type": ["number", "null"] },
+              "address": { "type": ["string", "null"] }
+            }
+          },
+          "total_score": { "type": "number" },
+          "score_breakdown": { "type": "object", "additionalProperties": true },
+          "travel_time": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["duration_seconds", "distance_meters", "provider_name", "fetched_at"],
+            "properties": {
+              "duration_seconds": { "type": "integer", "minimum": 0 },
+              "distance_meters": { "type": "integer", "minimum": 0 },
+              "provider_name": { "type": "string" },
+              "fetched_at": { "type": "string" }
+            }
+          },
+          "recommendation_reasons": { "type": "array", "items": { "type": "string" } },
+          "data_freshness": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    "warnings": { "type": "array", "items": { "type": "string" } }
+  }
+}
+

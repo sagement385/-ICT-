@@ -1,0 +1,133 @@
+# 충북 119 AI 기반 응급환자 병원 추천 및 이송 경로 지원 시스템
+
+충북 지역 응급환자에 대해 음성에서 추출한 환자 상태, 병원 역량, 실시간 수용 가능 여부, 실제 자동차 이동시간을 한 화면에서 확인하도록 돕는 의사결정 지원 시스템의 초기 골격입니다.
+
+이 프로젝트는 의료진이나 구급대원의 판단을 대체하지 않습니다. 실제 의료 기준·병원 수용 상태·운전 판단을 시스템이 대신 결정하지 않으며, 데이터가 없거나 오래된 경우 추천을 생성하지 않고 오류 또는 경고를 표시합니다.
+
+## 데이터 흐름
+
+```text
+신고자/구급대원 음성
+  -> speech-ai (STT 및 구조화된 patient-event)
+  -> POST /api/v1/patients
+  -> raw_ingestion_event + patient_case + patient_symptom
+  -> 병원 공공데이터/HIRA 동기화
+  -> 실시간 수용 상태 및 네이버 Directions 조회
+  -> DB 정책/가중치 기반 추천 실행
+  -> recommendation-result JSON
+  -> 지도·환자 상태·추천 근거 UI
+```
+
+모듈은 공통 JSON Schema와 API 계약을 통해 연결합니다. 다른 팀의 내부 모듈을 직접 import하지 않고 API, repository, provider 인터페이스 경계를 사용합니다.
+
+## 저장소 구조와 팀 담당
+
+| 팀원 | 담당 경로 | 책임 |
+| --- | --- | --- |
+| 1. AI 음성처리 | `speech-ai/`, `contracts/patient-event.schema.json` | STT, 음성 전처리, 환자 이벤트 생성 |
+| 2. 환자·병원·추천 | `backend/app/modules/patient/`, `hospital/`, `recommendation/`, HIRA·공공데이터·병원 동기화, 추천 테스트 | 저장·정규화·후보·정책 기반 순위 |
+| 3. 지도·프론트엔드 | `frontend/`, `backend/app/modules/routing/`, Naver Maps·ITS | 지도, 경로, 결과 화면 |
+| 4. 통합·배포 | `backend/app/main.py`, `core/`, `api/`, `contracts/`, `infra/`, Docker, CI, docs | 공통 오류·설정·API·배포 |
+
+상세 경계와 충돌 방지 규칙은 [`docs/team-ownership.md`](docs/team-ownership.md)를 참고합니다.
+
+## 빠른 시작
+
+### 1. 환경변수
+
+```powershell
+Copy-Item .env.example .env
+```
+
+실제 키와 토큰은 `.env` 또는 비밀 저장소에만 넣고 커밋하지 않습니다. 필수 변수 목록은 [`.env.example`](.env.example)에 있습니다.
+
+### 2. 로컬 백엔드
+
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+uvicorn app.main:app --reload
+```
+
+`GET /api/v1/health`는 DB 없이도 서버 상태를 확인할 수 있습니다. `ready` 및 DB를 사용하는 API는 DB 연결 설정이 없으면 명확한 오류를 반환합니다.
+
+### 3. Docker Compose
+
+```powershell
+docker compose up --build
+```
+
+서비스:
+
+- Backend: `http://localhost:8000`
+- Frontend: `http://localhost:5173`
+- PostgreSQL: `localhost:5432`
+
+`speech-ai`는 초기 Compose 기본 실행에서 제외하고 `--profile speech`로 선택 실행하도록 구성했습니다.
+
+### 4. 마이그레이션
+
+```powershell
+cd backend
+alembic upgrade head
+```
+
+초기 마이그레이션은 테이블만 생성합니다. 운영 병원·환자·정책·가중치 데이터는 자동 삽입하지 않습니다.
+
+### 5. 테스트와 품질 검사
+
+```powershell
+cd backend
+pytest
+ruff check .
+mypy app
+```
+
+프론트엔드는 다음을 사용합니다.
+
+```powershell
+cd frontend
+npm install
+npm run build
+```
+
+## 현재 구현된 기능
+
+- FastAPI health/ready 및 기본 도메인 API 라우터
+- Pydantic v2 요청 검증과 공통 오류 응답(`request_id` 포함)
+- SQLAlchemy 2 모델과 Alembic 초기 테이블 마이그레이션
+- 환자·병원 repository/service 경계
+- 추천 정책·가중치 조회 경계와 미설정 오류
+- 외부 API 공통 클라이언트, 재시도·timeout·request id·raw 응답 저장 구조
+- AI-Hub/HIRA/공공데이터/ITS/Naver 연동 인터페이스
+- 팀 간 JSON Schema
+- 실제 데이터가 없을 때 가짜 마커·가짜 추천을 표시하지 않는 프론트엔드 상태
+- 테스트 및 GitHub Actions 골격
+
+## 아직 구현하지 않은 기능
+
+- 실제 STT 모델과 의료 엔터티 추출 모델
+- 승인된 AI-Hub 원본 데이터의 전처리 파이프라인
+- HIRA·공공데이터·ITS·Naver 인증 및 실제 호출
+- 실제 응답 샘플에 근거한 parser/normalizer/validator 완성
+- 의학적 후보 제외 기준, 정책 가중치, 점수 공식
+- 병원 seed, 실시간 수용 가능 여부, 실제 경로·이동시간
+- 운영용 인증/권한/감사 정책
+
+외부 API 키가 없으면 서버 자체는 시작할 수 있으나 해당 기능 호출 시 `EXTERNAL_SERVICE_NOT_CONFIGURED` 또는 기능별 설정 오류로 HTTP 503을 반환합니다. 추천 정책이 없으면 `RECOMMENDATION_POLICY_NOT_CONFIGURED`로 중단합니다.
+
+## 설계 원칙
+
+- 운영 데이터와 API 응답을 코드에 하드코딩하지 않습니다.
+- 추천 가중치는 코드가 아니라 `recommendation_policy`, `recommendation_weight`에서 읽습니다.
+- 외부 원본 payload와 출처·시각·스키마 버전을 추적합니다.
+- 최신성을 확인하지 못한 데이터는 stale 경고로 표시합니다.
+- 테스트 데이터는 각 프로젝트의 `tests/fixtures/` 아래에만 둡니다.
+- 이 시스템은 의료 의사결정 보조 도구이며, 최종 판단은 의료진·구급대원이 합니다.
+
+## 데이터 확인 순서
+
+외부 API를 구현할 때는 공식 문서와 실제 샘플 응답을 먼저 확보하고, 확인된 필드만 parser/validator에 반영합니다. 현재 확인 결과와 TODO는 [`docs/data-sources.md`](docs/data-sources.md)에 기록했습니다.
+
