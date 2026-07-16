@@ -73,8 +73,20 @@ class Settings(BaseSettings):
         default=None,
         alias="HOSPITAL_DATA_MAX_AGE_SECONDS",
     )
-    hospital_status_max_age_seconds: int | None = Field(default=None, alias="HOSPITAL_STATUS_MAX_AGE_SECONDS")
+    hospital_status_max_age_seconds: int | None = Field(
+        default=None, alias="HOSPITAL_STATUS_MAX_AGE_SECONDS"
+    )
+    emergency_institution_data_max_age_seconds: int | None = Field(
+        default=None,
+        alias="EMERGENCY_INSTITUTION_DATA_MAX_AGE_SECONDS",
+    )
     chungbuk_sido_code: str = Field(default="330000", alias="CHUNGBUK_SIDO_CODE")
+    chungbuk_region_name: str = Field(default="충청북도", alias="CHUNGBUK_REGION_NAME")
+    nemc_hira_coordinate_warning_meters: float = Field(
+        default=1000.0,
+        ge=0,
+        alias="NEMC_HIRA_COORDINATE_WARNING_METERS",
+    )
     candidate_radius_km: float = Field(default=10.0, ge=5.0, le=10.0, alias="CANDIDATE_RADIUS_KM")
     naver_directions_max_calls: int | None = Field(
         default=None,

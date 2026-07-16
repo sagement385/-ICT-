@@ -5,7 +5,10 @@ from typing import Any
 from xml.etree import ElementTree
 
 from app.core.errors import ApplicationError
-from app.integrations.nemc.schemas import NemcRealtimeRecord
+from app.integrations.nemc.schemas import (
+    NemcEmergencyInstitutionRecord,
+    NemcRealtimeRecord,
+)
 
 
 def parse_realtime_records(payload: Any) -> list[NemcRealtimeRecord]:
@@ -23,6 +26,34 @@ def parse_realtime_records(payload: Any) -> list[NemcRealtimeRecord]:
                 source_record_id=source_record_id,
                 institution_name=fields.get("dutyName"),
                 source_updated_at=_parse_timestamp(fields.get("hvidate")),
+                raw_fields=fields,
+            )
+        )
+    return records
+
+
+def parse_emergency_institutions(payload: Any) -> list[NemcEmergencyInstitutionRecord]:
+    """Parse only fields observed in the live emergency-institution list response."""
+
+    root = _parse_xml(payload)
+    records: list[NemcEmergencyInstitutionRecord] = []
+    for item in root.findall(".//item"):
+        fields = {child.tag: child.text for child in item}
+        source_record_id = fields.get("hpid")
+        institution_name = fields.get("dutyName")
+        if not source_record_id or not institution_name:
+            continue
+        records.append(
+            NemcEmergencyInstitutionRecord(
+                source_record_id=source_record_id,
+                institution_name=institution_name,
+                address=fields.get("dutyAddr"),
+                emergency_type_code=fields.get("dutyEmcls"),
+                emergency_type_name=fields.get("dutyEmclsName"),
+                representative_phone=fields.get("dutyTel1"),
+                emergency_phone=fields.get("dutyTel3"),
+                latitude=_parse_float(fields.get("wgs84Lat")),
+                longitude=_parse_float(fields.get("wgs84Lon")),
                 raw_fields=fields,
             )
         )
@@ -87,5 +118,16 @@ def _parse_timestamp(value: str | None) -> datetime | None:
         return None
     try:
         return datetime.strptime(value, "%Y%m%d%H%M%S").astimezone()
+    except ValueError:
+        return None
+
+
+def _parse_float(value: str | None) -> float | None:
+    """Parse a confirmed coordinate while preserving absent or malformed values."""
+
+    if not value:
+        return None
+    try:
+        return float(value)
     except ValueError:
         return None

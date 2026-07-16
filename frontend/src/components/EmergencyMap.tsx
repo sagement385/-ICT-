@@ -195,7 +195,7 @@ export default function EmergencyMap({ patient, hospitals, recommendation, route
     <section className="map-card">
       <div className="map-toolbar">
         <strong>지도</strong>
-        <span>{hospitals.length}개 실제 병원 후보</span>
+        <span>{hospitals.length}개 공식 응급의료기관 후보</span>
         <span>{routes.length}개 실제 경로</span>
       </div>
       {mapError ? <div className="map-error">{mapError}</div> : <div ref={mapElement} className="map-canvas" />}

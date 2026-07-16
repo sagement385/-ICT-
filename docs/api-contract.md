@@ -54,3 +54,16 @@ Base path: `/api/v1`
 | 503 | `RECOMMENDATION_POLICY_INVALID` | 활성 정책 factor가 불완전하거나 지원되지 않음 |
 
 예상하지 못한 서버 오류도 동일 envelope와 `request_id`를 반환하며, 원본 외부 응답이나 비밀키를 오류 응답에 포함하지 않습니다.
+
+## 응급의료기관 후보 계약
+
+`GET /hospitals`는 반경 안의 모든 의료기관이 아니라 NEMC 공식 응급의료기관 목록과
+고유하게 연결된 병원만 반환합니다. 각 항목의 `emergency_profile`에는 NEMC 분류,
+전화, 출처 ID, raw payload ID, 매칭 방식, 좌표 경고와 독립적인 freshness가 포함됩니다.
+
+| HTTP | code | 의미 |
+| --- | --- | --- |
+| 503 | `EMERGENCY_INSTITUTION_DATA_NOT_SYNCED` | NEMC 공식 목록이 아직 DB에 동기화되지 않음 |
+| 503 | `EXTERNAL_SERVICE_REQUEST_FAILED` | 외부 API가 재시도 후에도 타임아웃 또는 네트워크 오류 |
+
+추천 실행도 같은 공식 후보 집합을 사용하며, profile이 없으면 가짜 추천을 생성하지 않습니다.

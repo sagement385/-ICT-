@@ -68,14 +68,20 @@ export default function HospitalRankingPanel({ recommendation, nearbyHospitals, 
               <div className="rank-number muted-rank">후보</div>
               <div className="hospital-main">
                 <strong>{hospital.hospital_name}</strong>
-                <span>{hospital.hospital_type_code ?? "종별 미확인"}</span>
-                <DataFreshnessBadge status={hospital.freshness.status} reason={hospital.freshness.reason} />
+                <span>{hospital.emergency_profile?.emergency_type_name ?? "응급기관 분류 미확인"}</span>
+                {hospital.emergency_profile?.coordinate_warning && (
+                  <span>기관 간 좌표 차이 확인 필요</span>
+                )}
+                <DataFreshnessBadge
+                  status={hospital.emergency_profile?.freshness.status ?? "unavailable"}
+                  reason={hospital.emergency_profile?.freshness.reason ?? "응급기관 출처 없음"}
+                />
               </div>
               <span className="candidate-label">순위 없음</span>
             </article>
           ))}
       {!recommendation && nearbyHospitals.length === 0 && (
-        <div className="empty-copy">동기화된 충북 병원 데이터가 없거나 위치 좌표가 없습니다.</div>
+        <div className="empty-copy">반경 안에 동기화된 공식 응급의료기관이 없거나 위치 좌표가 없습니다.</div>
       )}
       {!recommendation && nearbyHospitals.length > 0 && (
         <p className="muted-note">활성 추천 정책이 없으면 후보에 순위·점수를 부여하지 않습니다.</p>

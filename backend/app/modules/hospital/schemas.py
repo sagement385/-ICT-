@@ -25,6 +25,26 @@ class DataFreshness(BaseModel):
     reason: str | None = None
 
 
+class EmergencyInstitutionProfileResponse(BaseModel):
+    """Official emergency-institution registration and source provenance."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    emergency_type_code: str | None
+    emergency_type_name: str | None
+    representative_phone: str | None
+    emergency_phone: str | None
+    source_name: str
+    source_record_id: str
+    raw_payload_id: str | None
+    schema_version: str
+    fetched_at: datetime
+    source_updated_at: datetime | None
+    match_method: str
+    coordinate_warning: bool
+    freshness: DataFreshness
+
+
 class HospitalResponse(BaseModel):
     """Hospital response with provenance fields."""
 
@@ -41,4 +61,4 @@ class HospitalResponse(BaseModel):
     schema_version: str
     source_updated_at: datetime | None
     freshness: DataFreshness
-
+    emergency_profile: EmergencyInstitutionProfileResponse | None

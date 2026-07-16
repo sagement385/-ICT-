@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+  <header><resultCode>00</resultCode><resultMsg>TEST_SUCCESS</resultMsg></header>
+  <body>
+    <items>
+      <item>
+        <rnum>1</rnum>
+        <hpid>TEST_NEMC_HPID_001</hpid>
+        <phpid>TEST_PARENT_HPID_001</phpid>
+        <dutyName>TEST_HOSPITAL_001</dutyName>
+        <dutyAddr>TEST_REGION TEST_ADDRESS</dutyAddr>
+        <dutyEmcls>TEST_EMERGENCY_TYPE_001</dutyEmcls>
+        <dutyEmclsName>TEST_EMERGENCY_TYPE_NAME_001</dutyEmclsName>
+        <dutyTel1>TEST_PHONE_001</dutyTel1>
+        <dutyTel3>TEST_EMERGENCY_PHONE_001</dutyTel3>
+        <wgs84Lat>0.01</wgs84Lat>
+        <wgs84Lon>0.02</wgs84Lon>
+      </item>
+    </items>
+    <numOfRows>1</numOfRows><pageNo>1</pageNo><totalCount>1</totalCount>
+  </body>
+</response>

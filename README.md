@@ -105,11 +105,11 @@ npm run build
 
 - FastAPI health/ready 및 기본 도메인 API 라우터
 - Pydantic v2 요청 검증과 공통 오류 응답(`request_id` 포함)
-- SQLAlchemy 2 모델과 additive Alembic migration(`0001`~`0003`)
+- SQLAlchemy 2 모델과 additive Alembic migration(`0001`~`0004`)
 - 환자·병원 repository/service 경계
 - 중복 환자 409 처리, 원본 이벤트 및 입력 출처 보존
 - HIRA 충북 병원 기본정보와 실제 샘플로 확인된 진료과·전문의·의료장비 일부 정규화
-- NEMC 원본 수집과 보수적 병원 매칭(의미 미확인 상태값은 null 유지)
+- NEMC 공식 응급의료기관 목록 기반 후보 필터와 `hpid` 실시간 상태 연결(의미 미확인 상태값은 null 유지)
 - DB 정책을 해석하는 특징값·점수·순위·저장·최근 결과 파이프라인
 - 활성 정책 또는 가중치가 없을 때 503으로 닫히는 추천 API
 - Naver Directions/Geocoding 연동, 부분 실패 처리, 경로 snapshot·출처 저장
@@ -153,3 +153,23 @@ npm run build
 음성 AI 데이터가 준비되기 전에는 프론트엔드의 단계별 채팅 입력을 사용합니다. 증상 자유 입력만 `POST /api/v1/patients/assist`로 보내 Gemini가 사용자 문장에 명시한 사실을 구조화합니다. 이 기능은 진단, KTAS/Pre-KTAS 판단, 병원 추천, 수용 가능 여부 판단을 하지 않으며 결과에는 항상 사람 확인 필요 표시가 포함됩니다.
 
 `GEMINI_API_KEY`가 없으면 `EXTERNAL_SERVICE_NOT_CONFIGURED`, 키가 유효하지 않거나 Gemini가 오류를 반환하면 `GEMINI_API_ERROR`로 HTTP 503을 반환합니다. 오류 시 프론트엔드는 사용자가 입력한 원문을 보존해 수동 확인 흐름으로 진행합니다. 키는 `.env`에만 저장하고 저장소에는 올리지 않습니다.
+
+## NEMC 공식 응급의료기관 후보 필터
+
+지도와 추천의 병원 후보는 HIRA 전체 의료기관을 그대로 사용하지 않습니다. 먼저 NEMC
+`getEgytListInfoInqire`에서 공식 응급의료기관 목록을 수집하고, 충청북도 주소를 가진
+기관을 기존 HIRA 병원과 고유한 정규화 이름으로 연결합니다. 연결되지 않거나 여러 병원과
+중복 매칭되는 기관은 후보에 포함하지 않습니다. ITS 노드·링크 데이터는 이 자격 필터에
+필요하지 않으며, 향후 자체 도로망 분석을 구현할 때 사용합니다.
+
+```powershell
+cd backend
+python -m alembic upgrade head
+python scripts/sync_hospital_data.py
+python scripts/sync_emergency_institutions.py
+python scripts/sync_realtime_status.py
+```
+
+공식 응급기관 목록이 동기화되지 않은 상태에서 반경 병원 조회 또는 추천을 실행하면
+가짜 후보를 반환하지 않고 HTTP 503 `EMERGENCY_INSTITUTION_DATA_NOT_SYNCED`를 반환합니다.
+NEMC 실시간 응답의 병상·수용 상태 코드 의미는 공식 코드표가 확보될 때까지 `null`로 유지합니다.

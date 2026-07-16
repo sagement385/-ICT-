@@ -161,12 +161,12 @@ class RecommendationService:
                     details={"incident_id": incident_id},
                 )
 
-            hospitals = await self.hospital_repository.list_all()
+            hospitals = await self.hospital_repository.list_emergency_hospitals()
             if not hospitals:
                 raise ApplicationError(
-                    code="HOSPITAL_CANDIDATES_EMPTY",
-                    message="추천에 사용할 병원 데이터가 없습니다.",
-                    details={},
+                    code="EMERGENCY_INSTITUTION_DATA_NOT_SYNCED",
+                    message="추천 후보로 사용할 응급의료기관 목록이 없습니다.",
+                    details={"required_command": "python scripts/sync_emergency_institutions.py"},
                 )
 
             hospitals = self.candidate_filter.filter(patient, hospitals, None)
@@ -187,6 +187,9 @@ class RecommendationService:
             run.policy_id = policy.policy.id
             hospital_ids = [hospital.hospital_id for hospital in hospitals]
             realtime_status = await self.realtime_provider.load(hospital_ids)
+            emergency_profiles = await self.hospital_repository.list_emergency_profiles(
+                hospital_ids
+            )
             route_data, route_warnings = await self._load_routes(patient, hospitals)
             warnings.extend(route_warnings)
 
@@ -196,6 +199,7 @@ class RecommendationService:
                 candidates,
                 route_data,
                 realtime_status,
+                emergency_profiles,
             )
             scored = self.score_calculator.calculate(features, policy.weights)
             ranked = self.ranking_service.rank(list(scored.values()), limit)
@@ -303,7 +307,9 @@ class RecommendationService:
         hospitals = {
             hospital.hospital_id: hospital
             for hospital in (
-                await self.session.execute(select(Hospital).where(Hospital.hospital_id.in_(hospital_ids)))
+                await self.session.execute(
+                    select(Hospital).where(Hospital.hospital_id.in_(hospital_ids))
+                )
             ).scalars()
         }
         routes = await self.route_repository.list_for_run(run.id)

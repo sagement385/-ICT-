@@ -9,7 +9,7 @@ from app.core.freshness import (
     evaluate_freshness,
     unavailable_freshness,
 )
-from app.modules.hospital.models import Hospital
+from app.modules.hospital.models import Hospital, HospitalEmergencyProfile
 from app.modules.patient.schemas import PatientEventRequest
 from app.modules.routing.schemas import RouteSnapshotData
 
@@ -23,15 +23,18 @@ class FeatureBuilder:
         hospitals: list[Hospital],
         route_data: dict[str, RouteSnapshotData],
         realtime_status: dict[str, dict[str, Any]],
+        emergency_profiles: dict[str, HospitalEmergencyProfile] | None = None,
     ) -> dict[str, dict[str, Any]]:
         """Build only technical route, status, and freshness features."""
 
         del patient
         settings = get_settings()
+        emergency_profiles = emergency_profiles or {}
         features: dict[str, dict[str, Any]] = {}
         for hospital in hospitals:
             route = route_data.get(hospital.hospital_id)
             status = realtime_status.get(hospital.hospital_id)
+            emergency_profile = emergency_profiles.get(hospital.hospital_id)
 
             hospital_freshness = evaluate_freshness(
                 hospital.source_updated_at,
@@ -57,9 +60,29 @@ class FeatureBuilder:
                     "HOSPITAL_REALTIME_STATUS_UNAVAILABLE",
                 )
             )
+            emergency_observed_at = None
+            if emergency_profile is not None:
+                emergency_observed_at = (
+                    emergency_profile.source_updated_at or emergency_profile.fetched_at
+                )
+            emergency_freshness = (
+                evaluate_freshness(
+                    emergency_observed_at,
+                    settings.emergency_institution_data_max_age_seconds,
+                )
+                if emergency_profile is not None
+                else unavailable_freshness(
+                    "공식 응급의료기관 등록 정보를 조회하지 못했습니다.",
+                    "EMERGENCY_INSTITUTION_DATA_UNAVAILABLE",
+                )
+            )
 
             freshness = {
                 "hospital": self._freshness_payload(hospital_freshness, "hospital"),
+                "emergency_institution": self._freshness_payload(
+                    emergency_freshness,
+                    "emergency_institution",
+                ),
                 "realtime": self._freshness_payload(realtime_freshness, "realtime"),
                 "route": self._freshness_payload(route_freshness, "route"),
             }
@@ -99,6 +122,20 @@ class FeatureBuilder:
                         "schema_version": hospital.schema_version,
                         "source_updated_at": self._iso(hospital.source_updated_at),
                     },
+                    "emergency_institution": (
+                        {
+                            "source_name": emergency_profile.source_name,
+                            "source_record_id": emergency_profile.source_record_id,
+                            "raw_payload_id": emergency_profile.raw_payload_id,
+                            "schema_version": emergency_profile.schema_version,
+                            "source_updated_at": self._iso(emergency_profile.source_updated_at),
+                            "fetched_at": self._iso(emergency_profile.fetched_at),
+                            "match_method": emergency_profile.match_method,
+                            "coordinate_warning": emergency_profile.coordinate_warning,
+                        }
+                        if emergency_profile is not None
+                        else None
+                    ),
                     "realtime": self._status_provenance(status),
                     "route": (
                         {
@@ -139,6 +176,7 @@ class FeatureBuilder:
         if evaluation.status == "stale":
             payload["warning_code"] = {
                 "hospital": "HOSPITAL_DATA_STALE",
+                "emergency_institution": "EMERGENCY_INSTITUTION_DATA_STALE",
                 "realtime": "HOSPITAL_REALTIME_STATUS_STALE",
                 "route": "ROUTE_DATA_STALE",
             }[domain]

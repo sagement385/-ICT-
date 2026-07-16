@@ -27,3 +27,15 @@ AI-Hub 119 페이지에는 `audioPath`, `recordId`, 발화 배열, `urgencyLevel
 4. 운영 수집 성공 시각과 raw payload id를 DB에 기록
 
 페이지에서 확인되지 않은 인증·갱신·파일 버전은 TODO로 남겼습니다. 추측한 필드명으로 parser를 완성하지 않습니다.
+
+## NEMC 응급의료기관 목록 확인 기록 (2026-07-16)
+
+동일 데이터셋 `15000563`의 `getEgytListInfoInqire`를 실제 호출한 뒤 다음 필드가 있는
+XML 응답을 확인했습니다: `hpid`, `dutyName`, `dutyAddr`, `dutyEmcls`,
+`dutyEmclsName`, `dutyTel1`, `dutyTel3`, `wgs84Lat`, `wgs84Lon`.
+전국 534건 중 주소가 `충청북도`로 시작하는 21건을 확인했으며, 21건 모두 기존 HIRA
+병원과 고유 이름으로 연결됐습니다. 운영 payload는 저장소에 넣지 않고
+`raw_ingestion_event`에만 저장하며, 테스트에는 `TEST_*` fixture만 사용합니다.
+
+목록 parser와 동기화는 구현 완료입니다. 실시간 endpoint의 `hv*` 계열 필드에 대한
+의료적 의미와 가용병상 변환은 공식 코드표 확보 전이므로 TODO이며 값을 추측하지 않습니다.

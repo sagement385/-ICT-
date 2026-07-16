@@ -62,3 +62,21 @@
 - 반경 후보 조회: 200, 실제 DB 후보 존재
 - Naver 배치 경로 1건: 200, 성공 1건·오류 0건 및 snapshot 저장
 - 정책 미설정 추천 실행: 503 `RECOMMENDATION_POLICY_NOT_CONFIGURED`, 추천 결과 미생성
+
+## 2026-07-16 NEMC 공식 후보 필터 추가
+
+- migration `0004_emergency_profiles`와 `hospital_emergency_profile`을 추가했다.
+- 실제 `getEgytListInfoInqire` 응답 필드를 먼저 확인하고 parser와 동기화 스크립트를 구현했다.
+- 실데이터 동기화 결과: 전국 534건, 충북 21건, 연결 21건, 미연결·중복 0건, 좌표 경고 1건.
+- NEMC 실시간 데이터는 기관명 대신 공식 `hpid`로 연결하며, 확인되지 않은 병상 의미는 null이다.
+- 지도와 추천 후보는 활성 NEMC profile이 있는 병원으로 fail-closed 제한된다.
+- 최신 환자 위치의 10km API smoke test에서 기존 전체 의료기관 265개가 공식 후보 2개로 줄었다.
+- ITS 데이터는 응급기관 자격 필터에 사용하지 않았다.
+
+검증 결과:
+
+- `python -m pytest -q`: 51 passed
+- `python -m ruff check app tests scripts migrations`: 통과
+- `python -m mypy app`: 통과
+- `python -m alembic upgrade head && python -m alembic check`: 통과
+- `npm run build`: 통과

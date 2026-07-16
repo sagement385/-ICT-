@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.database import Base
 from app.core.freshness import evaluate_freshness
-from app.modules.hospital.models import Hospital
+from app.modules.hospital.models import Hospital, HospitalEmergencyProfile
 from app.modules.patient.models import PatientCase, PatientSymptom
 from app.modules.recommendation.models import (
     RecommendationPolicy,
@@ -66,6 +66,7 @@ async def test_policy_pipeline_persists_and_serializes_results(
             hospital_data_max_age_seconds=threshold,
             route_data_max_age_seconds=threshold,
             hospital_status_max_age_seconds=threshold,
+            emergency_institution_data_max_age_seconds=threshold,
         ),
     )
 
@@ -141,6 +142,29 @@ async def test_policy_pipeline_persists_and_serializes_results(
                     raw_payload_id=None,
                     schema_version="test-hospital.v1",
                     source_updated_at=now,
+                )
+            )
+            session.add(
+                HospitalEmergencyProfile(
+                    hospital_id=item["hospital_id"],
+                    source_name="TEST_EMERGENCY_SOURCE",
+                    source_record_id=f"TEST_NEMC_{item['hospital_id']}",
+                    source_institution_name=item["hospital_name"],
+                    source_address=None,
+                    source_latitude=item["latitude"],
+                    source_longitude=item["longitude"],
+                    emergency_type_code="TEST_EMERGENCY_TYPE",
+                    emergency_type_name="TEST_EMERGENCY_TYPE_NAME",
+                    representative_phone=None,
+                    emergency_phone=None,
+                    match_method="TEST_MATCH_METHOD",
+                    active=True,
+                    coordinate_distance_meters=0,
+                    coordinate_warning=False,
+                    raw_payload_id=None,
+                    schema_version="test-emergency.v1",
+                    source_updated_at=now,
+                    fetched_at=now,
                 )
             )
         policy_data = fixture["policy"]

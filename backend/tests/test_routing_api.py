@@ -1,12 +1,16 @@
 """Routing API tests that never call Naver or use operational coordinates."""
 
 import json
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import get_db_session
 from app.core.errors import ApplicationError
 from app.main import app
 from app.modules.routing.schemas import RouteQuery, RouteSnapshotData
@@ -26,12 +30,12 @@ def test_route_api_returns_provider_snapshot(monkeypatch: pytest.MonkeyPatch) ->
                 provider_name=fixture["response"]["provider_name"],
                 distance_meters=fixture["response"]["distance_meters"],
                 duration_seconds=fixture["response"]["duration_seconds"],
-                    traffic_summary=fixture["response"]["traffic_summary"],
-                    fetched_at=datetime(2026, 1, 1, tzinfo=UTC),
-                    source_name="TEST_PROVIDER",
-                    source_record_id="TEST_ROUTE_001",
-                    schema_version="test-route.v1",
-                )
+                traffic_summary=fixture["response"]["traffic_summary"],
+                fetched_at=datetime(2026, 1, 1, tzinfo=UTC),
+                source_name="TEST_PROVIDER",
+                source_record_id="TEST_ROUTE_001",
+                schema_version="test-route.v1",
+            )
 
     monkeypatch.setattr("app.api.v1.routing.NaverRoutingProvider", FakeProvider)
     response = TestClient(app).post("/api/v1/routing/test", json=fixture["query"])
@@ -74,18 +78,27 @@ def test_route_batch_returns_successes_and_explicit_failures(monkeypatch: pytest
                 schema_version="test-route.v1",
             )
 
+    async def test_db_session() -> AsyncIterator[AsyncSession]:
+        """Provide a non-operational session boundary; this request does not persist."""
+
+        yield AsyncMock(spec=AsyncSession)
+
     monkeypatch.setattr("app.api.v1.routing.NaverRoutingProvider", FakeProvider)
-    response = TestClient(app).post(
-        "/api/v1/routing/batch",
-        json={
-            "origin_latitude": 0,
-            "origin_longitude": 0,
-            "destinations": [
-                {"hospital_id": "TEST_HOSPITAL_001", "latitude": 1, "longitude": 1},
-                {"hospital_id": "TEST_HOSPITAL_002", "latitude": 1, "longitude": 2},
-            ],
-        },
-    )
+    app.dependency_overrides[get_db_session] = test_db_session
+    try:
+        response = TestClient(app).post(
+            "/api/v1/routing/batch",
+            json={
+                "origin_latitude": 0,
+                "origin_longitude": 0,
+                "destinations": [
+                    {"hospital_id": "TEST_HOSPITAL_001", "latitude": 1, "longitude": 1},
+                    {"hospital_id": "TEST_HOSPITAL_002", "latitude": 1, "longitude": 2},
+                ],
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_db_session, None)
 
     assert response.status_code == 200
     assert len(response.json()["routes"]) == 1

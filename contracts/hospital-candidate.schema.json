@@ -4,7 +4,7 @@
   "title": "Hospital Candidate",
   "type": "object",
   "additionalProperties": false,
-  "required": ["hospital_id", "hospital_name", "location", "source", "freshness"],
+  "required": ["hospital_id", "hospital_name", "location", "source", "freshness", "emergency_profile"],
   "properties": {
     "hospital_id": { "type": "string", "minLength": 1 },
     "hospital_name": { "type": "string", "minLength": 1 },
@@ -40,11 +40,53 @@
       "additionalProperties": false,
       "required": ["status", "observed_at"],
       "properties": {
-        "status": { "type": "string", "enum": ["fresh", "stale", "unknown"] },
+        "status": { "type": "string", "enum": ["fresh", "stale", "unknown", "unavailable"] },
         "observed_at": { "type": ["string", "null"] },
         "reason": { "type": ["string", "null"] }
+      }
+    },
+    "emergency_profile": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": [
+        "emergency_type_code",
+        "emergency_type_name",
+        "representative_phone",
+        "emergency_phone",
+        "source_name",
+        "source_record_id",
+        "raw_payload_id",
+        "schema_version",
+        "fetched_at",
+        "source_updated_at",
+        "match_method",
+        "coordinate_warning",
+        "freshness"
+      ],
+      "properties": {
+        "emergency_type_code": { "type": ["string", "null"] },
+        "emergency_type_name": { "type": ["string", "null"] },
+        "representative_phone": { "type": ["string", "null"] },
+        "emergency_phone": { "type": ["string", "null"] },
+        "source_name": { "type": "string", "minLength": 1 },
+        "source_record_id": { "type": "string", "minLength": 1 },
+        "raw_payload_id": { "type": ["string", "null"] },
+        "schema_version": { "type": "string", "minLength": 1 },
+        "fetched_at": { "type": "string", "format": "date-time" },
+        "source_updated_at": { "type": ["string", "null"], "format": "date-time" },
+        "match_method": { "type": "string", "minLength": 1 },
+        "coordinate_warning": { "type": "boolean" },
+        "freshness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "observed_at", "reason"],
+          "properties": {
+            "status": { "type": "string", "enum": ["fresh", "stale", "unknown", "unavailable"] },
+            "observed_at": { "type": ["string", "null"], "format": "date-time" },
+            "reason": { "type": ["string", "null"] }
+          }
+        }
       }
     }
   }
 }
-

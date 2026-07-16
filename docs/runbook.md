@@ -97,3 +97,29 @@ python scripts/create_policy.py --file ../docs/recommendation-policy-draft.json 
 ```
 
 의료진 승인·근거 문서·모든 factor 값이 확보되기 전에는 `--insert --activate`를 실행하지 않습니다.
+
+## NEMC 공식 응급의료기관 동기화
+
+HIRA 기본 병원 데이터와 마이그레이션이 먼저 준비되어야 합니다.
+
+```powershell
+cd backend
+python -m alembic upgrade head
+python scripts/sync_emergency_institutions.py
+python scripts/sync_realtime_status.py
+```
+
+첫 명령은 전국 공식 목록 원본을 보존한 뒤 주소가 `CHUNGBUK_REGION_NAME`으로 시작하는
+기관만 HIRA 병원에 연결합니다. 이름이 없거나 중복되면 fail-closed로 제외하며 좌표 차이는
+`NEMC_HIRA_COORDINATE_WARNING_METERS` 기준의 감사 경고로 남깁니다. 전체 수집이 성공한 뒤에만
+이전 profile의 활성 상태를 갱신합니다.
+
+실시간 수집은 profile의 `hpid`를 사용하므로 공식 목록 동기화 전에 실행하면
+`EMERGENCY_INSTITUTION_DATA_NOT_SYNCED`로 중단됩니다. 공공데이터 API가 지연되면 bounded retry 후
+`EXTERNAL_SERVICE_REQUEST_FAILED`가 발생하고 해당 실행의 DB 쓰기는 롤백됩니다.
+
+정상 확인 항목:
+
+- `GET /api/v1/hospitals?...` 결과에 `emergency_profile`이 존재함
+- `data_source_registry`의 `nemc-emergency-institution-list` 최근 성공 시각이 존재함
+- 실시간 병상 의미가 검증되기 전에는 `acceptance_status`, `available_beds`가 `null`임

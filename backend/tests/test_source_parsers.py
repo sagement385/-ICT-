@@ -7,7 +7,10 @@ from app.core.errors import ApplicationError
 from app.integrations.hira.detail_parser import parse_detail
 from app.integrations.hira.parser import parse_basic_hospitals
 from app.integrations.hira.parser import parse_total_count as parse_hira_total_count
-from app.integrations.nemc.parser import parse_realtime_records
+from app.integrations.nemc.parser import (
+    parse_emergency_institutions,
+    parse_realtime_records,
+)
 from app.integrations.nemc.parser import parse_total_count as parse_nemc_total_count
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -27,6 +30,16 @@ def test_nemc_fixture_preserves_raw_status_fields() -> None:
     assert parse_nemc_total_count(payload) == 1
     assert records[0].source_record_id == "TEST_NEMC_001"
     assert records[0].raw_fields["hvs01"] == "TEST_RAW_STATUS"
+
+
+def test_nemc_emergency_list_uses_only_live_confirmed_fields() -> None:
+    """The emergency eligibility parser uses the verified list field names."""
+
+    payload = (FIXTURES / "nemc-emergency-list-test.xml").read_text(encoding="utf-8")
+    records = parse_emergency_institutions(payload)
+    assert records[0].source_record_id == "TEST_NEMC_HPID_001"
+    assert records[0].emergency_type_code == "TEST_EMERGENCY_TYPE_001"
+    assert records[0].latitude == 0.01
 
 
 def test_hira_detail_fixture_normalizes_verified_department_fields() -> None:
