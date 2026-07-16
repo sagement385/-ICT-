@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     naver_map_client_id: str | None = Field(default=None, alias="NAVER_MAP_CLIENT_ID")
     naver_map_client_secret: str | None = Field(default=None, alias="NAVER_MAP_CLIENT_SECRET")
     gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
-    gemini_model: str = Field(default="gemini-2.5-flash-lite", alias="GEMINI_MODEL")
+    gemini_model: str = Field(default="gemini-3.5-flash", alias="GEMINI_MODEL")
     gemini_base_url: str = Field(
         default="https://generativelanguage.googleapis.com/v1beta",
         alias="GEMINI_BASE_URL",
