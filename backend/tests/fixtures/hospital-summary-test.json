@@ -1,0 +1,22 @@
+{
+  "hospital_id": "TEST_HOSPITAL_001",
+  "hospital_name": "TEST_HOSPITAL_NAME",
+  "hospital_type_code": null,
+  "location": {
+    "latitude": null,
+    "longitude": null,
+    "address": "TEST_ADDRESS_REDACTED"
+  },
+  "phone": null,
+  "source_name": "TEST_SOURCE",
+  "source_record_id": "TEST_RECORD_001",
+  "raw_payload_id": "TEST_RAW_001",
+  "schema_version": "TEST_SCHEMA_V1",
+  "source_updated_at": null,
+  "freshness": {
+    "status": "unknown",
+    "observed_at": null,
+    "reason": "TEST_DATA"
+  },
+  "emergency_profile": null
+}

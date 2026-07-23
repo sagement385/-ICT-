@@ -56,6 +56,10 @@ class Settings(BaseSettings):
         default="https://apis.data.go.kr/B552657/ErmctInfoInqireService",
         alias="NEMC_BASE_URL",
     )
+    nemc_source_timezone: str | None = Field(
+        default=None,
+        alias="NEMC_SOURCE_TIMEZONE",
+    )
     naver_directions_base_url: str = Field(
         default="https://maps.apigw.ntruss.com/map-direction/v1",
         alias="NAVER_DIRECTIONS_BASE_URL",
@@ -98,6 +102,17 @@ class Settings(BaseSettings):
         ge=1,
         le=50,
         alias="RECOMMENDATION_ROUTE_CANDIDATE_LIMIT",
+    )
+    routing_max_concurrency: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        alias="ROUTING_MAX_CONCURRENCY",
+    )
+    nemc_sync_interval_seconds: int | None = Field(
+        default=None,
+        ge=30,
+        alias="NEMC_SYNC_INTERVAL_SECONDS",
     )
 
 

@@ -2,6 +2,8 @@
 
 from collections.abc import Mapping
 
+import httpx
+
 from app.core.config import get_settings
 from app.core.errors import ApplicationError
 from app.integrations.common.base_client import BaseExternalClient, RawExternalResponse
@@ -11,7 +13,11 @@ from app.integrations.common.rate_limit import get_shared_budget
 class NaverDirectionsClient(BaseExternalClient):
     """Fetch raw Directions data after client credentials are configured."""
 
-    def __init__(self, base_url: str | None = None) -> None:
+    def __init__(
+        self,
+        base_url: str | None = None,
+        http_client: httpx.AsyncClient | None = None,
+    ) -> None:
         settings = get_settings()
         super().__init__(
             base_url=base_url or settings.naver_directions_base_url,
@@ -19,6 +25,7 @@ class NaverDirectionsClient(BaseExternalClient):
             source_name="naver-directions",
             api_key_param=None,
             base_url_setting_name="NAVER_DIRECTIONS_BASE_URL",
+            http_client=http_client,
         )
         self.client_id = settings.naver_map_client_id
         self.budget = get_shared_budget("naver-directions5", settings.naver_directions_max_calls)

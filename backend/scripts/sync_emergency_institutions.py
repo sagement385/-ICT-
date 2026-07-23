@@ -17,6 +17,9 @@ from app.modules.hospital.data_source_registry import (
     safe_collection_error_code,
 )
 from app.modules.hospital.models import Hospital, HospitalEmergencyProfile
+from app.modules.hospital.source_identity_repository import (
+    HospitalSourceIdentityRepository,
+)
 from app.modules.hospital.source_linker import match_emergency_institution
 from app.modules.patient.models import RawIngestionEvent
 
@@ -50,6 +53,7 @@ async def sync_emergency_institutions() -> EmergencyInstitutionSyncSummary:
     linked_source_ids: set[str] = set()
     async with session_factory() as session:
         registry = DataSourceRegistryRepository(session)
+        identity_repository = HospitalSourceIdentityRepository(session)
         try:
             hospitals = list((await session.execute(select(Hospital))).scalars())
             if not hospitals:
@@ -92,6 +96,14 @@ async def sync_emergency_institutions() -> EmergencyInstitutionSyncSummary:
                     if match.status == "ambiguous" or match.hospital is None:
                         ambiguous += 1
                         continue
+                    await identity_repository.record_candidate(
+                        hospital_id=match.hospital.hospital_id,
+                        source_name="nemc-emergency-institution-list",
+                        source_record_id=record.source_record_id,
+                        source_hospital_name=record.institution_name,
+                        match_method="exact_normalized_name_unique",
+                        match_confidence=None,
+                    )
                     coordinate_warnings += int(match.coordinate_warning)
                     await session.merge(
                         HospitalEmergencyProfile(

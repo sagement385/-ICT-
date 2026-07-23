@@ -1,57 +1,84 @@
+x-backend-environment: &backend-environment
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-chungbuk_emergency}
+  ENVIRONMENT: ${ENVIRONMENT:-development}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  PUBLIC_DATA_API_KEY: ${PUBLIC_DATA_API_KEY:-}
+  HIRA_API_KEY: ${HIRA_API_KEY:-}
+  NEMC_API_KEY: ${NEMC_API_KEY:-}
+  NEMC_SOURCE_TIMEZONE: ${NEMC_SOURCE_TIMEZONE:-}
+  MOLIT_TRAFFIC_API_KEY: ${MOLIT_TRAFFIC_API_KEY:-}
+  MOLIT_TRAFFIC_BASE_URL: ${MOLIT_TRAFFIC_BASE_URL:-}
+  NAVER_MAP_CLIENT_ID: ${NAVER_MAP_CLIENT_ID:-}
+  NAVER_MAP_CLIENT_SECRET: ${NAVER_MAP_CLIENT_SECRET:-}
+  NAVER_DIRECTIONS_MAX_CALLS: ${NAVER_DIRECTIONS_MAX_CALLS:-}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash}
+  ROUTE_DATA_MAX_AGE_SECONDS: ${ROUTE_DATA_MAX_AGE_SECONDS:-}
+  HOSPITAL_DATA_MAX_AGE_SECONDS: ${HOSPITAL_DATA_MAX_AGE_SECONDS:-}
+  HOSPITAL_STATUS_MAX_AGE_SECONDS: ${HOSPITAL_STATUS_MAX_AGE_SECONDS:-}
+  EMERGENCY_INSTITUTION_DATA_MAX_AGE_SECONDS: ${EMERGENCY_INSTITUTION_DATA_MAX_AGE_SECONDS:-}
+  CHUNGBUK_REGION_NAME: ${CHUNGBUK_REGION_NAME:-충청북도}
+  NEMC_HIRA_COORDINATE_WARNING_METERS: ${NEMC_HIRA_COORDINATE_WARNING_METERS:-1000}
+  CANDIDATE_RADIUS_KM: ${CANDIDATE_RADIUS_KM:-10}
+  RECOMMENDATION_ROUTE_CANDIDATE_LIMIT: ${RECOMMENDATION_ROUTE_CANDIDATE_LIMIT:-10}
+  ROUTING_MAX_CONCURRENCY: ${ROUTING_MAX_CONCURRENCY:-3}
+  NEMC_SYNC_INTERVAL_SECONDS: ${NEMC_SYNC_INTERVAL_SECONDS:-}
+
 services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: chungbuk_emergency
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-chungbuk_emergency}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d chungbuk_emergency"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-chungbuk_emergency}"]
       interval: 5s
       timeout: 5s
       retries: 10
+
+  migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/backend.Dockerfile
+    working_dir: /workspace/backend
+    environment: *backend-environment
+    command: alembic upgrade head
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   backend:
     build:
       context: .
       dockerfile: infra/docker/backend.Dockerfile
     working_dir: /workspace/backend
-    environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/chungbuk_emergency
-      PUBLIC_DATA_API_KEY: ${PUBLIC_DATA_API_KEY:-}
-      HIRA_API_KEY: ${HIRA_API_KEY:-}
-      NEMC_API_KEY: ${NEMC_API_KEY:-}
-      MOLIT_TRAFFIC_API_KEY: ${MOLIT_TRAFFIC_API_KEY:-}
-      MOLIT_TRAFFIC_BASE_URL: ${MOLIT_TRAFFIC_BASE_URL:-}
-      NAVER_MAP_CLIENT_ID: ${NAVER_MAP_CLIENT_ID:-}
-      NAVER_MAP_CLIENT_SECRET: ${NAVER_MAP_CLIENT_SECRET:-}
-      NAVER_DIRECTIONS_MAX_CALLS: ${NAVER_DIRECTIONS_MAX_CALLS:-}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      ROUTE_DATA_MAX_AGE_SECONDS: ${ROUTE_DATA_MAX_AGE_SECONDS:-}
-      HOSPITAL_DATA_MAX_AGE_SECONDS: ${HOSPITAL_DATA_MAX_AGE_SECONDS:-}
-      HOSPITAL_STATUS_MAX_AGE_SECONDS: ${HOSPITAL_STATUS_MAX_AGE_SECONDS:-}
-      EMERGENCY_INSTITUTION_DATA_MAX_AGE_SECONDS: ${EMERGENCY_INSTITUTION_DATA_MAX_AGE_SECONDS:-}
-      CHUNGBUK_REGION_NAME: ${CHUNGBUK_REGION_NAME:-충청북도}
-      NEMC_HIRA_COORDINATE_WARNING_METERS: ${NEMC_HIRA_COORDINATE_WARNING_METERS:-1000}
-      RECOMMENDATION_ROUTE_CANDIDATE_LIMIT: ${RECOMMENDATION_ROUTE_CANDIDATE_LIMIT:-10}
+    environment: *backend-environment
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/workspace/backend
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   frontend:
     build:
       context: .
       dockerfile: infra/docker/frontend.Dockerfile
+      target: development
     working_dir: /workspace/frontend
     environment:
       VITE_API_BASE_URL: http://localhost:8000
@@ -63,7 +90,20 @@ services:
       - ./frontend:/workspace/frontend
       - frontend_node_modules:/workspace/frontend/node_modules
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+
+  realtime-sync:
+    profiles: ["sync"]
+    build:
+      context: .
+      dockerfile: infra/docker/backend.Dockerfile
+    working_dir: /workspace/backend
+    environment: *backend-environment
+    command: python scripts/run_realtime_sync_worker.py
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
   speech-ai:
     profiles: ["speech"]
@@ -71,9 +111,29 @@ services:
       context: .
       dockerfile: infra/docker/speech-ai.Dockerfile
     working_dir: /workspace/speech-ai
-    command: python -m app.main
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      BACKEND_API_BASE_URL: http://backend:8000
+      SPEECH_STT_PROVIDER: ${SPEECH_STT_PROVIDER:-}
+      SPEECH_ENTITY_EXTRACTOR: ${SPEECH_ENTITY_EXTRACTOR:-}
+      SPEECH_AUDIO_ROOT: ${SPEECH_AUDIO_ROOT:-}
+      SPEECH_MAX_AUDIO_BYTES: ${SPEECH_MAX_AUDIO_BYTES:-26214400}
+      SPEECH_ALLOWED_AUDIO_EXTENSIONS: ${SPEECH_ALLOWED_AUDIO_EXTENSIONS:-.wav,.mp3,.m4a,.flac}
+      BACKEND_TIMEOUT_SECONDS: ${BACKEND_TIMEOUT_SECONDS:-10}
+      BACKEND_MAX_RETRIES: ${BACKEND_MAX_RETRIES:-2}
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8100
+    ports:
+      - "8100:8100"
     volumes:
       - ./speech-ai:/workspace/speech-ai
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8100/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:

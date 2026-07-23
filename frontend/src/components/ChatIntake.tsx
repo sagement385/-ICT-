@@ -1,17 +1,20 @@
 import { useMemo, useState } from "react";
 import { ApiError, formatApiError } from "../api/client";
+import { type CreatePatientEvent, type PatientAssistResult } from "../api/patients";
 import {
-  assistPatientText,
-  createPatient,
-  geocodeAddress,
-  type CreatePatientEvent,
-  type PatientAssistResult,
-} from "../api/patients";
+  useAssistPatient,
+  useCreatePatient,
+  useGeocodeAddress,
+} from "../hooks/useEmergencyData";
 import type { PatientEvent } from "../types/patient";
 
 type ChatMessage = { id: number | string; role: "assistant" | "user"; text: string };
 type Step = "location" | "consciousness" | "breathing" | "bleeding" | "symptom" | "urgency" | "review";
-type Props = { onCompleted: (patient: PatientEvent) => Promise<void>; disabled?: boolean };
+type Props = {
+  onCompleted: (patient: PatientEvent) => Promise<void>;
+  onReset?: () => void;
+  disabled?: boolean;
+};
 
 const prompts: Record<Step, string> = {
   location: "환자 위치를 주소로 입력해주세요. 좌표를 알고 있다면 위도,경도 형식도 가능합니다.",
@@ -31,7 +34,7 @@ const choices: Partial<Record<Step, string[]>> = {
   review: ["확인 후 등록", "처음부터 다시 입력"],
 };
 
-export default function ChatIntake({ onCompleted, disabled = false }: Props) {
+export default function ChatIntake({ onCompleted, onReset, disabled = false }: Props) {
   const [step, setStep] = useState<Step>("location");
   const [value, setValue] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -42,6 +45,10 @@ export default function ChatIntake({ onCompleted, disabled = false }: Props) {
   const [assistMetadata, setAssistMetadata] = useState<PatientAssistResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [registered, setRegistered] = useState(false);
+  const createPatientMutation = useCreatePatient();
+  const assistMutation = useAssistPatient();
+  const geocodeMutation = useGeocodeAddress();
 
   const nextStep = useMemo(() => {
     const order: Step[] = ["location", "consciousness", "breathing", "bleeding", "symptom", "urgency", "review"];
@@ -75,7 +82,7 @@ export default function ChatIntake({ onCompleted, disabled = false }: Props) {
         return;
       }
       try {
-        const location = await geocodeAddress(trimmed);
+        const location = await geocodeMutation.mutateAsync(trimmed);
         await moveNext({ location: { latitude: location.latitude, longitude: location.longitude, address_text: location.address } });
       } catch (locationError) {
         const message = locationError instanceof ApiError
@@ -96,7 +103,7 @@ export default function ChatIntake({ onCompleted, disabled = false }: Props) {
 
     if (step === "symptom") {
       try {
-        const assisted = await assistPatientText(trimmed);
+        const assisted = await assistMutation.mutateAsync(trimmed);
         setAssistMetadata(assisted);
         const symptoms = assisted.symptoms.length > 0
           ? assisted.symptoms
@@ -152,12 +159,14 @@ export default function ChatIntake({ onCompleted, disabled = false }: Props) {
     setDraft({ symptoms: [] });
     setAssistMetadata(null);
     setStep("location");
+    setValue("");
+    setRegistered(false);
     setError(null);
-    setMessages((current) => [
-      ...current,
-      { id: Date.now() + 1, role: "assistant", text: "입력을 초기화했습니다." },
+    setMessages([
+      { id: Date.now() + 1, role: "assistant", text: "새 신고 입력을 시작합니다." },
       { id: Date.now() + 2, role: "assistant", text: prompts.location },
     ]);
+    onReset?.();
   }
 
   function formatReview(completed: Partial<CreatePatientEvent>): string {
@@ -187,7 +196,7 @@ export default function ChatIntake({ onCompleted, disabled = false }: Props) {
       return;
     }
     setSubmitting(true);
-    const incidentId = `CHAT-${new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}-${Math.floor(Math.random() * 900 + 100)}`;
+    const incidentId = `CHAT-${crypto.randomUUID()}`;
     const event: CreatePatientEvent = {
       incident_id: incidentId,
       observed_at: new Date().toISOString(),
@@ -205,10 +214,11 @@ export default function ChatIntake({ onCompleted, disabled = false }: Props) {
         : { model_name: "chat-intake", model_version: "manual-v1" },
     };
     try {
-      const patient = await createPatient(event);
+      const patient = await createPatientMutation.mutateAsync(event);
       setMessages((current) => [...current, { id: Date.now(), role: "assistant", text: "환자 정보가 등록되었습니다. 주변 병원과 추천 상태를 확인합니다." }]);
       try {
         await onCompleted(patient);
+        setRegistered(true);
       } catch (dashboardError) {
         const message = dashboardError instanceof ApiError
           ? `환자 정보는 등록됐지만 후속 조회에 실패했습니다: ${formatApiError(dashboardError)}`
@@ -236,6 +246,11 @@ export default function ChatIntake({ onCompleted, disabled = false }: Props) {
         <input value={value} onChange={(event) => setValue(event.target.value)} placeholder={step === "symptom" ? "예: 가슴 통증과 호흡 곤란" : "답변을 입력하세요"} disabled={submitting || disabled} />
         <button className="primary-button" type="submit" disabled={!value.trim() || submitting || disabled}>{submitting ? "등록 중" : "전송"}</button>
       </form>
+      {registered && (
+        <button className="secondary-button full-width" type="button" onClick={resetDraft}>
+          새 신고 시작
+        </button>
+      )}
       {error && <p className="error-text">{error}</p>}
       <p className="muted-note">의료진·구급대원의 판단을 대체하지 않는 의사결정 지원용 입력입니다.</p>
     </section>

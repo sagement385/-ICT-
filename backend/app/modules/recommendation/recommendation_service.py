@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -40,7 +40,8 @@ from app.modules.recommendation.score_calculator import ScoreCalculator
 from app.modules.routing.models import RouteSnapshot
 from app.modules.routing.provider import NaverRoutingProvider
 from app.modules.routing.repository import RouteSnapshotRepository
-from app.modules.routing.schemas import RouteQuery, RouteSnapshotData
+from app.modules.routing.schemas import RouteBatchQuery, RouteQuery, RouteSnapshotData
+from app.modules.routing.service import RoutingService
 
 
 class RealtimeStatusProvider(Protocol):
@@ -66,13 +67,39 @@ class DatabaseRealtimeStatusProvider:
     async def load(self, hospital_ids: list[str]) -> dict[str, dict[str, Any]]:
         """Return available rows and leave missing hospitals explicitly absent."""
 
+        if not hospital_ids:
+            return {}
+        verified_source_updated_at = case(
+            (
+                HospitalRealtimeStatus.source_timezone != "unknown",
+                HospitalRealtimeStatus.source_updated_at,
+            ),
+            else_=None,
+        )
+        ranked_rows = (
+            select(
+                HospitalRealtimeStatus.id.label("status_id"),
+                func.row_number()
+                .over(
+                    partition_by=HospitalRealtimeStatus.hospital_id,
+                    order_by=(
+                        verified_source_updated_at.desc().nulls_last(),
+                        HospitalRealtimeStatus.fetched_at.desc(),
+                        HospitalRealtimeStatus.id.desc(),
+                    ),
+                )
+                .label("row_number"),
+            )
+            .where(HospitalRealtimeStatus.hospital_id.in_(hospital_ids))
+            .subquery()
+        )
         statement = (
             select(HospitalRealtimeStatus)
-            .where(HospitalRealtimeStatus.hospital_id.in_(hospital_ids))
-            .order_by(
-                HospitalRealtimeStatus.hospital_id,
-                HospitalRealtimeStatus.fetched_at.asc(),
+            .join(
+                ranked_rows,
+                HospitalRealtimeStatus.id == ranked_rows.c.status_id,
             )
+            .where(ranked_rows.c.row_number == 1)
         )
         rows = list((await self.session.execute(statement)).scalars())
         return {
@@ -84,6 +111,8 @@ class DatabaseRealtimeStatusProvider:
                 "raw_payload_id": row.raw_payload_id,
                 "schema_version": row.schema_version,
                 "source_updated_at": row.source_updated_at,
+                "source_updated_at_raw": row.source_updated_at_raw,
+                "source_timezone": row.source_timezone,
                 "fetched_at": row.fetched_at,
             }
             for row in rows
@@ -117,6 +146,10 @@ class RecommendationService:
         )
         self.route_provider: RouteDataProvider = route_provider or NaverRoutingProvider(
             NaverDirectionsClient()
+        )
+        self.routing_service = RoutingService(
+            session,
+            self.route_provider,
         )
 
     async def run(self, incident_id: str, limit: int) -> RecommendationResultResponse:
@@ -190,7 +223,10 @@ class RecommendationService:
             emergency_profiles = await self.hospital_repository.list_emergency_profiles(
                 hospital_ids
             )
-            route_data, route_warnings = await self._load_routes(patient, hospitals)
+            identity_verifications = (
+                await self.hospital_repository.list_source_identity_verifications(hospital_ids)
+            )
+            route_data, route_warnings = await self._load_routes(patient, hospitals, run.id)
             warnings.extend(route_warnings)
 
             candidates = self.candidate_filter.filter(patient, hospitals, policy)
@@ -200,6 +236,7 @@ class RecommendationService:
                 route_data,
                 realtime_status,
                 emergency_profiles,
+                identity_verifications,
             )
             scored = self.score_calculator.calculate(features, policy.weights)
             ranked = self.ranking_service.rank(list(scored.values()), limit)
@@ -208,14 +245,6 @@ class RecommendationService:
                     code="HOSPITAL_CANDIDATES_EMPTY",
                     message="활성 정책을 통과한 병원 후보가 없습니다.",
                     details={"evaluated_hospital_count": len(scored)},
-                )
-
-            for hospital_id, route in route_data.items():
-                await self.route_repository.add(
-                    incident_id,
-                    hospital_id,
-                    route,
-                    recommendation_run_id=run.id,
                 )
 
             result_rows: list[RecommendationResult] = []
@@ -359,27 +388,21 @@ class RecommendationService:
         self,
         patient: PatientEventRequest,
         hospitals: list[Hospital],
+        recommendation_run_id: str,
     ) -> tuple[dict[str, RouteSnapshotData], list[str]]:
         """Load independent provider routes and retain explicit partial failures."""
 
         if patient.location.latitude is None or patient.location.longitude is None:
             return {}, ["ROUTE_DATA_UNAVAILABLE"]
-        routes: dict[str, RouteSnapshotData] = {}
-        warnings: list[str] = []
-        for hospital in hospitals:
-            if hospital.latitude is None or hospital.longitude is None:
-                warnings.append("ROUTE_DATA_UNAVAILABLE")
-                continue
-            query = RouteQuery(
-                origin_latitude=patient.location.latitude,
-                origin_longitude=patient.location.longitude,
-                destination_latitude=hospital.latitude,
-                destination_longitude=hospital.longitude,
-            )
-            try:
-                routes[hospital.hospital_id] = await self.route_provider.get_route(query)
-            except ApplicationError as error:
-                warnings.append(error.code)
+        batch = await self.routing_service.get_batch(
+            RouteBatchQuery(
+                incident_id=patient.incident_id,
+                hospital_ids=[hospital.hospital_id for hospital in hospitals],
+            ),
+            recommendation_run_id=recommendation_run_id,
+        )
+        routes = {item.hospital_id: item.route for item in batch.routes}
+        warnings = [error.code for error in batch.errors]
         if not routes:
             warnings.append("ROUTE_DATA_UNAVAILABLE")
         return routes, sorted(set(warnings))

@@ -6,12 +6,9 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import app.models  # noqa: F401
 from app.core.config import get_settings
 from app.core.database import Base
-from app.modules.hospital import models as hospital_models  # noqa: F401
-from app.modules.patient import models as patient_models  # noqa: F401
-from app.modules.recommendation import models as recommendation_models  # noqa: F401
-from app.modules.routing import models as routing_models  # noqa: F401
 
 config = context.config
 settings = get_settings()

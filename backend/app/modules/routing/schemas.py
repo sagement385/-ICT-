@@ -1,7 +1,7 @@
 """Provider-neutral route contracts; external response fields stay raw until verified."""
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -46,14 +46,18 @@ class RouteDestination(BaseModel):
 
 
 class RouteBatchQuery(BaseModel):
-    """One patient origin and up to ten visible hospital destinations."""
+    """One stored incident and up to ten official emergency-hospital IDs."""
 
     model_config = ConfigDict(extra="forbid")
 
-    incident_id: str | None = Field(default=None, min_length=1)
-    origin_latitude: float = Field(ge=-90, le=90)
-    origin_longitude: float = Field(ge=-180, le=180)
-    destinations: list[RouteDestination] = Field(min_length=1, max_length=10)
+    incident_id: str = Field(min_length=1)
+    hospital_ids: list[str] = Field(min_length=1, max_length=10)
+
+    @property
+    def unique_hospital_ids(self) -> list[str]:
+        """Preserve request order while removing duplicate provider calls."""
+
+        return list(dict.fromkeys(self.hospital_ids))
 
 
 class RouteBatchItem(BaseModel):
@@ -63,6 +67,7 @@ class RouteBatchItem(BaseModel):
 
     hospital_id: str
     route: RouteSnapshotData
+    cache_status: Literal["hit", "miss"]
 
 
 class RouteBatchError(BaseModel):
@@ -82,3 +87,4 @@ class RouteBatchResponse(BaseModel):
 
     routes: list[RouteBatchItem]
     errors: list[RouteBatchError]
+    generated_at: datetime

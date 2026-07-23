@@ -48,6 +48,7 @@ cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
+alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
@@ -57,7 +58,7 @@ Windows에서 Docker Desktop 가상화가 지원되지 않아도 위 방식으�
 
 ```powershell
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
@@ -73,7 +74,7 @@ docker compose up --build
 - Frontend: `http://localhost:5173`
 - PostgreSQL: `localhost:5432`
 
-`speech-ai`는 초기 Compose 기본 실행에서 제외하고 `--profile speech`로 선택 실행하도록 구성했습니다.
+Compose는 PostgreSQL healthcheck 후 `migrate` 서비스가 Alembic을 적용하고, 그다음 Backend와 Frontend를 시작합니다. `speech-ai`는 기본 실행에서 제외하며 `docker compose --profile speech up --build`로 선택 실행합니다. 기본 PostgreSQL 계정은 로컬 개발 편의를 위한 값이므로 운영 환경에서는 `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`를 비밀 저장소에서 반드시 재설정합니다.
 
 ### 4. 마이그레이션
 
@@ -87,39 +88,54 @@ alembic upgrade head
 ### 5. 테스트와 품질 검사
 
 ```powershell
-cd backend
-pytest
-ruff check .
-mypy app
+python -m pytest backend/tests
+python -m ruff check backend
+python -m mypy backend/app
 ```
 
 프론트엔드는 다음을 사용합니다.
 
 ```powershell
 cd frontend
-npm install
+npm ci
+npm test -- --run
 npm run build
+npm audit --omit=dev
+```
+
+음성 경계는 다음을 사용합니다.
+
+```powershell
+python -m pytest speech-ai/tests
+python -m ruff check speech-ai
+python -m mypy speech-ai/app
 ```
 
 ## 현재 구현된 기능
 
 - FastAPI health/ready 및 기본 도메인 API 라우터
 - Pydantic v2 요청 검증과 공통 오류 응답(`request_id` 포함)
-- SQLAlchemy 2 모델과 additive Alembic migration(`0001`~`0004`)
+- SQLAlchemy 2 모델과 additive Alembic migration(`0001`~`0006`)
 - 환자·병원 repository/service 경계
 - 중복 환자 409 처리, 원본 이벤트 및 입력 출처 보존
 - HIRA 충북 병원 기본정보와 실제 샘플로 확인된 진료과·전문의·의료장비 일부 정규화
 - NEMC 공식 응급의료기관 목록 기반 후보 필터와 `hpid` 실시간 상태 연결(의미 미확인 상태값은 null 유지)
+- 검토 전 자동 source identity를 `verified=false`로 보존하고 NEMC 원본 시각 timezone을 추측하지 않는 구조
 - DB 정책을 해석하는 특징값·점수·순위·저장·최근 결과 파이프라인
 - 활성 정책 또는 가중치가 없을 때 503으로 닫히는 추천 API
 - Naver Directions/Geocoding 연동, 부분 실패 처리, 경로 snapshot·출처 저장
+- 사건·공식 응급기관 ID만 받는 개인정보 보호형 후보/경로 API와 최대 10개·동시 3개 경로 호출 제어
 - 데이터 최신성 `fresh`/`stale`/`unknown`/`unavailable` 구분
+- `/api/v1/status`, `/api/v1/data-sources` 기반 실시간 운영 준비도·수집 이력 표시
+- 명시된 `NEMC_SYNC_INTERVAL_SECONDS`에서만 동작하는 선택형 실시간 수집 worker
 - 외부 API 공통 클라이언트, 재시도·timeout·request id·raw 응답 저장 구조
 - Gemini를 이용한 명시 사실 추출 보조와 사람 확인 단계
 - AI-Hub/ITS 연동 인터페이스
 - 팀 간 JSON Schema
 - 후보 병원과 승인된 추천 결과를 구분하고 오류·재시도·지도 인증 안내를 제공하는 프론트엔드
-- 테스트 및 GitHub Actions
+- React Query 기반 주기적 상태 갱신, 지도 객체 재사용, 후보 선택·경로 연결 UI
+- Speech AI health/status, 파일 경계 검증, 빈 전사 차단, 백엔드 재시도·멱등 전송 구조
+- PostgreSQL migration·Backend·Frontend·Speech AI 테스트 및 GitHub Actions
 
 ## 아직 구현하지 않은 기능
 
@@ -130,8 +146,9 @@ npm run build
 - HIRA 시설·병상 등 의미가 아직 확인되지 않은 상세 필드 정규화
 - NEMC 상태 코드의 공식 의미를 반영한 수용 가능 여부·가용병상 정규화
 - 의료진이 승인한 후보 제외 기준, 활성 추천 정책 및 가중치
-- 운영 배포 환경의 Naver Web Dynamic Map 콘솔 origin 등록 검증
 - 운영용 인증/권한/감사 정책
+
+2026-07-22 로컬 검증 시점에는 HIRA 병원 2,213건 중 NEMC 공식 충북 응급기관 21건이 연결됐고, 그중 실시간 원본 15개 기관, 진료과·장비 21개 기관, 특수진료 19개 기관의 데이터가 조회됐습니다. NEMC↔HIRA 자동 매칭 21건은 모두 `verified=false`이므로 운영 투입 전 사람의 검토가 필요합니다. 이 값은 고정 운영 데이터가 아니라 수집 시점의 검증 기록이며 화면에서는 DB 집계값을 실시간으로 표시합니다.
 
 외부 API 키가 없으면 서버 자체는 시작할 수 있으나 해당 기능 호출 시 `EXTERNAL_SERVICE_NOT_CONFIGURED` 또는 기능별 설정 오류로 HTTP 503을 반환합니다. 추천 정책이 없으면 `RECOMMENDATION_POLICY_NOT_CONFIGURED`로 중단합니다.
 

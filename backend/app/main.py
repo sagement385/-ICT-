@@ -1,9 +1,11 @@
 """FastAPI application composition without business logic in the entrypoint."""
 
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from uuid import uuid4
 
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,16 +14,31 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.v1.router import router as api_router
 from app.core.config import get_settings
+from app.core.database import close_database
 from app.core.errors import ApplicationError, error_body
 from app.core.logging import configure_logging
 
 settings = get_settings()
 configure_logging(settings.log_level)
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+    """Reuse outbound connections and release shared resources on shutdown."""
+
+    limits = httpx.Limits(max_connections=20, max_keepalive_connections=10)
+    async with httpx.AsyncClient(limits=limits) as client:
+        application.state.external_http_client = client
+        yield
+    await close_database()
+
+
 app = FastAPI(
     title="Chungbuk 119 Emergency Decision Support API",
     version="0.1.0",
     description="의료 의사결정을 대체하지 않는 응급환자 병원·경로 지원 API",
+    lifespan=lifespan,
 )
 app.add_middleware(
     CORSMiddleware,

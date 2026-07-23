@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import type { HospitalRoute, RouteSnapshot } from "../api/routing";
-import type { Hospital } from "../types/hospital";
+import type { HospitalCandidate } from "../types/hospital";
 import type { PatientEvent } from "../types/patient";
 import type { RecommendationResult } from "../types/recommendation";
 
 type Props = {
   patient: PatientEvent | null;
-  hospitals: Hospital[];
+  hospitals: HospitalCandidate[];
   recommendation: RecommendationResult | null;
   route: RouteSnapshot | null;
   routes: HospitalRoute[];
+  selectedHospitalId: string | null;
+  onSelectHospital: (hospitalId: string) => void;
 };
 
 function escapeHtml(value: string): string {
@@ -26,17 +28,28 @@ function escapeHtml(value: string): string {
 }
 
 function formatDuration(seconds: number): string {
-  const minutes = Math.max(1, Math.round(seconds / 60));
-  return `${minutes}분`;
+  return `${Math.max(1, Math.round(seconds / 60))}분`;
 }
 
-export default function EmergencyMap({ patient, hospitals, recommendation, route, routes }: Props) {
+export default function EmergencyMap({
+  patient,
+  hospitals,
+  recommendation,
+  route,
+  routes,
+  selectedHospitalId,
+  onSelectHospital,
+}: Props) {
   const mapClientId = import.meta.env.VITE_NAVER_MAP_CLIENT_ID as string | undefined;
   const mapElement = useRef<HTMLDivElement>(null);
-  const overlays = useRef<any[]>([]);
+  const mapRef = useRef<NaverMapInstance | null>(null);
+  const overlays = useRef<NaverOverlay[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
-  const [selectedHospitalId, setSelectedHospitalId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!patient) mapRef.current = null;
+  }, [patient]);
 
   useEffect(() => {
     if (!mapClientId) {
@@ -47,7 +60,7 @@ export default function EmergencyMap({ patient, hospitals, recommendation, route
     const authFailure = (): void => {
       setMapLoaded(false);
       setMapError(
-        `네이버 지도 인증에 실패했습니다. Maps Application에서 Web Dynamic Map을 선택하고 Web 서비스 URL에 ${registeredHost}을 포트와 경로 없이 등록한 뒤 새로고침해주세요.`,
+        `네이버 지도 인증에 실패했습니다. Web 서비스 URL에 ${registeredHost}을 포트와 경로 없이 등록해주세요.`,
       );
     };
     window.navermap_authFailure = authFailure;
@@ -58,31 +71,28 @@ export default function EmergencyMap({ patient, hospitals, recommendation, route
         if (window.navermap_authFailure === authFailure) window.navermap_authFailure = undefined;
       };
     }
-
-    const foundScript = document.getElementById("naver-map-sdk");
-    const existingScript = foundScript instanceof HTMLScriptElement
-      && foundScript.src.includes("ncpKeyId=")
-      ? foundScript
-      : null;
-    if (foundScript && existingScript === null) foundScript.remove();
-    const script = existingScript
-      ? existingScript
-      : document.createElement("script");
-    script.id = "naver-map-sdk";
-    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(mapClientId)}`;
-    script.async = true;
+    const existing = document.getElementById("naver-map-sdk");
+    const script = existing instanceof HTMLScriptElement ? existing : document.createElement("script");
+    if (!(existing instanceof HTMLScriptElement)) {
+      script.id = "naver-map-sdk";
+      script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(mapClientId)}`;
+      script.async = true;
+      document.head.appendChild(script);
+    }
+    const timeout = window.setTimeout(() => {
+      if (!window.naver?.maps) setMapError("네이버 지도 SDK 응답 제한 시간을 초과했습니다.");
+    }, 8_000);
     script.onload = () => {
-      if (window.naver?.maps) {
-        setMapLoaded(true);
-      } else {
-        setMapError("네이버 지도 SDK가 로드됐지만 지도 객체를 초기화할 수 없습니다.");
-      }
+      window.clearTimeout(timeout);
+      if (window.naver?.maps) setMapLoaded(true);
+      else setMapError("네이버 지도 SDK 객체를 초기화할 수 없습니다.");
     };
     script.onerror = () => {
-      setMapError("네이버 지도 SDK를 불러오지 못했습니다. Web 서비스 URL 등록과 API 권한을 확인해주세요.");
+      window.clearTimeout(timeout);
+      setMapError("네이버 지도 SDK를 불러오지 못했습니다. API 권한과 등록 URL을 확인해주세요.");
     };
-    if (!existingScript) document.head.appendChild(script);
     return () => {
+      window.clearTimeout(timeout);
       script.onload = null;
       script.onerror = null;
       if (window.navermap_authFailure === authFailure) window.navermap_authFailure = undefined;
@@ -92,100 +102,112 @@ export default function EmergencyMap({ patient, hospitals, recommendation, route
   useEffect(() => {
     const latitude = patient?.location.latitude;
     const longitude = patient?.location.longitude;
-    if (!mapLoaded || !mapElement.current || latitude === null || latitude === undefined || longitude === null || longitude === undefined) return;
-    if (!window.naver?.maps) {
-      setMapError("네이버 지도 SDK를 사용할 수 없습니다.");
-      return;
+    if (
+      !mapLoaded
+      || !mapElement.current
+      || latitude === null
+      || latitude === undefined
+      || longitude === null
+      || longitude === undefined
+      || !window.naver?.maps
+    ) return;
+    const center = new window.naver.maps.LatLng(latitude, longitude);
+    if (!mapRef.current) {
+      mapRef.current = new window.naver.maps.Map(mapElement.current, { center, zoom: 12 });
+    } else {
+      mapRef.current.setCenter(center);
     }
+  }, [mapLoaded, patient?.location.latitude, patient?.location.longitude]);
 
+  useEffect(() => {
+    const latitude = patient?.location.latitude;
+    const longitude = patient?.location.longitude;
+    const map = mapRef.current;
     const naver = window.naver;
-    const center = new naver.maps.LatLng(latitude, longitude);
-    const map = new naver.maps.Map(mapElement.current, { center, zoom: 12 });
-    overlays.current.forEach((overlay) => overlay.setMap?.(null));
+    if (
+      !map
+      || !naver?.maps
+      || latitude === null
+      || latitude === undefined
+      || longitude === null
+      || longitude === undefined
+    ) return;
+    overlays.current.forEach((overlay) => {
+      overlay.close?.();
+      overlay.setMap?.(null);
+    });
     overlays.current = [];
-
-    const addOverlay = (overlay: any): void => {
+    const addOverlay = (overlay: NaverOverlay): void => {
       overlays.current.push(overlay);
     };
-
-    const patientMarker = new naver.maps.Marker({
+    const center = new naver.maps.LatLng(latitude, longitude);
+    const bounds = new naver.maps.LatLngBounds();
+    bounds.extend(center);
+    addOverlay(new naver.maps.Marker({
       position: center,
       map,
       title: "환자 위치",
       icon: {
-        content: '<div style="width:28px;height:28px;border-radius:50%;background:#e6283f;border:3px solid #fff;box-shadow:0 2px 8px #243b5a66;color:#fff;font-weight:800;font-size:11px;display:grid;place-items:center">119</div>',
-        anchor: new naver.maps.Point(14, 14),
+        content: '<div class="map-marker patient-marker">119</div>',
+        anchor: new naver.maps.Point(15, 15),
       },
-    });
-    addOverlay(patientMarker);
+    }));
 
     const routeByHospital = new Map(routes.map((item) => [item.hospital_id, item.route]));
-    const activeHospitalId = selectedHospitalId
-      ?? recommendation?.recommended_hospitals[0]?.hospital_id
-      ?? routes[0]?.hospital_id
-      ?? (routes.length === 0 && route ? "__single_route__" : undefined);
-    const bounds = new naver.maps.LatLngBounds();
-    bounds.extend(center);
-
     hospitals.forEach((hospital) => {
       const hospitalLatitude = hospital.location.latitude;
       const hospitalLongitude = hospital.location.longitude;
       if (hospitalLatitude === null || hospitalLongitude === null) return;
       const position = new naver.maps.LatLng(hospitalLatitude, hospitalLongitude);
       bounds.extend(position);
+      const isSelected = hospital.hospital_id === selectedHospitalId;
       const hospitalRoute = routeByHospital.get(hospital.hospital_id);
-      const infoText = hospitalRoute
-        ? `${escapeHtml(hospital.hospital_name)} · ${formatDuration(hospitalRoute.duration_seconds)}`
-        : escapeHtml(hospital.hospital_name);
       const marker = new naver.maps.Marker({
         position,
         map,
         title: hospital.hospital_name,
-        icon: hospital.hospital_id === activeHospitalId
-          ? {
-              content: '<div style="width:26px;height:26px;border-radius:50%;background:#2461dc;border:3px solid #fff;box-shadow:0 2px 8px #243b5a66;color:#fff;font-weight:800;display:grid;place-items:center">★</div>',
-              anchor: new naver.maps.Point(13, 13),
-            }
-          : undefined,
+        icon: {
+          content: `<div class="map-marker hospital-marker${isSelected ? " selected" : ""}">${isSelected ? "★" : "H"}</div>`,
+          anchor: new naver.maps.Point(14, 14),
+        },
       });
-      addOverlay(marker);
       const infoWindow = new naver.maps.InfoWindow({
-        content: `<div style="padding:10px;font-size:12px;white-space:nowrap">${infoText}</div>`,
+        content: `<div class="map-info"><strong>${escapeHtml(hospital.hospital_name)}</strong><span>${hospitalRoute ? formatDuration(hospitalRoute.duration_seconds) : "경로 확인 전"}</span></div>`,
       });
       naver.maps.Event.addListener(marker, "click", () => {
-        setSelectedHospitalId(hospital.hospital_id);
+        onSelectHospital(hospital.hospital_id);
         infoWindow.open(map, marker);
       });
+      addOverlay(marker);
       addOverlay(infoWindow);
     });
 
-    const drawRoute = (hospitalId: string, routeSnapshot: RouteSnapshot): void => {
-      if (!routeSnapshot.path || routeSnapshot.path.length < 2) return;
-      const isActive = hospitalId === activeHospitalId;
-      const polyline = new naver.maps.Polyline({
+    if (route?.path && route.path.length >= 2) {
+      addOverlay(new naver.maps.Polyline({
         map,
-        path: routeSnapshot.path.map(([routeLongitude, routeLatitude]) => new naver.maps.LatLng(routeLatitude, routeLongitude)),
-        strokeColor: isActive ? "#2563eb" : "#7f9bc7",
-        strokeOpacity: isActive ? 0.95 : 0.55,
-        strokeWeight: isActive ? 6 : 4,
-      });
-      addOverlay(polyline);
-    };
-
-    routes.forEach((item) => drawRoute(item.hospital_id, item.route));
-    if (routes.length === 0 && route) drawRoute("__single_route__", route);
-    map.fitBounds(bounds, 40);
+        path: route.path.map(([routeLongitude, routeLatitude]) => (
+          new naver.maps.LatLng(routeLatitude, routeLongitude)
+        )),
+        strokeColor: "#1769e8",
+        strokeOpacity: 0.92,
+        strokeWeight: 6,
+      }));
+    }
+    map.fitBounds(bounds, 48);
     return () => {
-      overlays.current.forEach((overlay) => overlay.setMap?.(null));
+      overlays.current.forEach((overlay) => {
+        overlay.close?.();
+        overlay.setMap?.(null);
+      });
       overlays.current = [];
     };
-  }, [mapLoaded, patient?.location.latitude, patient?.location.longitude, hospitals, recommendation, route, routes, selectedHospitalId]);
+  }, [patient, hospitals, recommendation, route, routes, selectedHospitalId, onSelectHospital]);
 
   if (!mapClientId) {
-    return <section className="map-card map-empty"><div className="empty-icon">⌖</div><h2>지도 API 설정 필요</h2><p>VITE_NAVER_MAP_CLIENT_ID와 Web 서비스 URL이 설정되면 실제 환자 위치와 병원 마커를 표시합니다.</p></section>;
+    return <section className="map-card map-empty"><div className="empty-icon">⌖</div><h2>지도 API 설정 필요</h2><p>VITE_NAVER_MAP_CLIENT_ID와 Web 서비스 URL을 설정해야 실제 지도를 표시합니다.</p></section>;
   }
   if (!patient) {
-    return <section className="map-card map-empty"><div className="empty-icon">⌖</div><h2>환자 위치 대기 중</h2><p>채팅 입력이 완료되면 지도와 실제 병원 위치를 표시합니다.</p></section>;
+    return <section className="map-card map-empty"><div className="empty-icon">⌖</div><h2>환자 위치 대기 중</h2><p>채팅 확인 입력이 완료되면 공식 응급기관과 실제 경로를 표시합니다.</p></section>;
   }
   if (patient.location.latitude === null || patient.location.longitude === null) {
     return <section className="map-card map-empty"><div className="empty-icon">⌖</div><h2>좌표 확인 필요</h2><p>주소 좌표를 확인하지 못해 지도를 표시하지 않습니다.</p></section>;
@@ -194,11 +216,12 @@ export default function EmergencyMap({ patient, hospitals, recommendation, route
   return (
     <section className="map-card">
       <div className="map-toolbar">
-        <strong>지도</strong>
-        <span>{hospitals.length}개 공식 응급의료기관 후보</span>
+        <strong>실시간 이송 경로</strong>
+        <span>{hospitals.length}개 공식 후보</span>
         <span>{routes.length}개 실제 경로</span>
       </div>
-      {mapError ? <div className="map-error">{mapError}</div> : <div ref={mapElement} className="map-canvas" />}
+      {mapError && <div className="map-alert">{mapError}</div>}
+      <div ref={mapElement} className="map-canvas" aria-label="환자와 병원 위치 지도" />
     </section>
   );
 }

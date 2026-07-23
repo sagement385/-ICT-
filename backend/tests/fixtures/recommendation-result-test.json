@@ -1,0 +1,27 @@
+{
+  "incident_id": "TEST_PATIENT_001",
+  "recommendation_run_id": "TEST_RUN_001",
+  "generated_at": "2026-01-01T00:00:00Z",
+  "policy": {
+    "policy_name": "TEST_POLICY",
+    "policy_version": "TEST_VERSION"
+  },
+  "recommended_hospitals": [
+    {
+      "rank": 1,
+      "hospital_id": "TEST_HOSPITAL_001",
+      "hospital_name": "TEST_HOSPITAL_NAME",
+      "location": {
+        "latitude": null,
+        "longitude": null,
+        "address": "TEST_ADDRESS_REDACTED"
+      },
+      "total_score": 0.0,
+      "score_breakdown": {},
+      "travel_time": null,
+      "recommendation_reasons": [],
+      "data_freshness": {}
+    }
+  ],
+  "warnings": ["TEST_WARNING"]
+}

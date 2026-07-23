@@ -1,10 +1,13 @@
 """Patient event endpoints."""
 
+import httpx
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
+from app.core.dependencies import get_external_http_client
 from app.core.errors import ApplicationError
+from app.integrations.gemini.client import GeminiClient
 from app.modules.patient.assist_service import PatientAssistService
 from app.modules.patient.schemas import (
     PatientAssistRequest,
@@ -28,10 +31,13 @@ async def create_patient(
 
 
 @router.post("/assist", response_model=PatientAssistResponse)
-async def assist_patient(event: PatientAssistRequest) -> PatientAssistResponse:
+async def assist_patient(
+    event: PatientAssistRequest,
+    http_client: httpx.AsyncClient = Depends(get_external_http_client),
+) -> PatientAssistResponse:
     """Extract explicit chat facts; this endpoint never stores or recommends."""
 
-    return await PatientAssistService().assist(event.text)
+    return await PatientAssistService(GeminiClient(http_client=http_client)).assist(event.text)
 
 
 @router.get("/{incident_id}", response_model=PatientCaseResponse)

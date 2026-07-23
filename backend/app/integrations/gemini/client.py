@@ -3,20 +3,27 @@
 import json
 from typing import Any
 
+import httpx
+
 from app.core.config import Settings, get_settings
 from app.core.errors import ApplicationError
 from app.integrations.common.base_client import BaseExternalClient, RawExternalResponse
 from app.integrations.gemini.schemas import GeminiExtraction
 
-SYSTEM_INSTRUCTION = (
-    "Extract only facts explicitly stated by the user from an emergency chat. "
-    "Do not diagnose, infer a medical condition, assign KTAS or Pre-KTAS, "
-    "recommend a hospital, or decide whether a hospital can accept the patient. "
-    "Use null when a status or location is not explicitly stated. "
-    "Keep symptom labels close to the user's wording. "
-    "Return urgency_level only when the user explicitly says Level 1, Level 2, "
-    "Level 3, or Level 4."
-)
+SYSTEM_INSTRUCTION = """
+You extract structured facts from Korean or English emergency chat text.
+Extract only facts explicitly stated by the user. Never diagnose, infer a disease,
+assign KTAS or Pre-KTAS, recommend a hospital, or decide hospital acceptance.
+
+For Korean status wording, normalize only the directly stated meaning:
+- 의식이 있다/없다 -> 의식 있음/의식 없음
+- 정상적으로 호흡한다, 숨쉬기 어렵다, 호흡이 없다 -> 정상 호흡/호흡 곤란/호흡 없음
+- 출혈이 있다/없다 -> 출혈 있음/출혈 없음
+Use 확인 불가 only when the user explicitly says the status cannot be checked.
+Use null when a status or location is not mentioned. Keep symptom labels close to
+the user's own wording and do not convert them into diagnoses. Return urgency_level
+only when the literal text Level 1, Level 2, Level 3, or Level 4 appears.
+""".strip()
 
 RESPONSE_SCHEMA: dict[str, Any] = {
     "type": "OBJECT",
@@ -61,7 +68,11 @@ RESPONSE_SCHEMA: dict[str, Any] = {
 class GeminiClient(BaseExternalClient):
     """Call Gemini generateContent with a JSON response schema."""
 
-    def __init__(self, settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        http_client: httpx.AsyncClient | None = None,
+    ) -> None:
         """Create a client from the already-loaded application settings."""
 
         settings = settings or get_settings()
@@ -72,6 +83,7 @@ class GeminiClient(BaseExternalClient):
             api_key_param=None,
             timeout_seconds=settings.gemini_timeout_seconds,
             base_url_setting_name="GEMINI_BASE_URL",
+            http_client=http_client,
         )
         self.model = settings.gemini_model
 

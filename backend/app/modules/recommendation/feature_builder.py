@@ -24,17 +24,30 @@ class FeatureBuilder:
         route_data: dict[str, RouteSnapshotData],
         realtime_status: dict[str, dict[str, Any]],
         emergency_profiles: dict[str, HospitalEmergencyProfile] | None = None,
+        identity_verifications: dict[tuple[str, str, str], bool] | None = None,
     ) -> dict[str, dict[str, Any]]:
         """Build only technical route, status, and freshness features."""
 
         del patient
         settings = get_settings()
         emergency_profiles = emergency_profiles or {}
+        identity_verifications = identity_verifications or {}
         features: dict[str, dict[str, Any]] = {}
         for hospital in hospitals:
             route = route_data.get(hospital.hospital_id)
             status = realtime_status.get(hospital.hospital_id)
             emergency_profile = emergency_profiles.get(hospital.hospital_id)
+            identity_verified = bool(
+                emergency_profile
+                and identity_verifications.get(
+                    (
+                        emergency_profile.hospital_id,
+                        emergency_profile.source_name,
+                        emergency_profile.source_record_id,
+                    ),
+                    False,
+                )
+            )
 
             hospital_freshness = evaluate_freshness(
                 hospital.source_updated_at,
@@ -93,6 +106,8 @@ class FeatureBuilder:
                     if payload.get("warning_code")
                 }
             )
+            if emergency_profile is not None and not identity_verified:
+                warnings.append("HOSPITAL_SOURCE_IDENTITY_UNVERIFIED")
             features[hospital.hospital_id] = {
                 "hospital_id": hospital.hospital_id,
                 "hospital_name": hospital.hospital_name,
@@ -131,6 +146,7 @@ class FeatureBuilder:
                             "source_updated_at": self._iso(emergency_profile.source_updated_at),
                             "fetched_at": self._iso(emergency_profile.fetched_at),
                             "match_method": emergency_profile.match_method,
+                            "identity_verified": identity_verified,
                             "coordinate_warning": emergency_profile.coordinate_warning,
                         }
                         if emergency_profile is not None
@@ -161,7 +177,11 @@ class FeatureBuilder:
             return None
         source_updated_at = status.get("source_updated_at")
         fetched_at = status.get("fetched_at")
-        if isinstance(source_updated_at, datetime):
+        source_timezone = status.get("source_timezone")
+        if source_timezone not in {None, "", "unknown"} and isinstance(
+            source_updated_at,
+            datetime,
+        ):
             return source_updated_at
         return fetched_at if isinstance(fetched_at, datetime) else None
 
@@ -194,6 +214,8 @@ class FeatureBuilder:
             "raw_payload_id": status.get("raw_payload_id"),
             "schema_version": status.get("schema_version"),
             "source_updated_at": FeatureBuilder._iso(status.get("source_updated_at")),
+            "source_updated_at_raw": status.get("source_updated_at_raw"),
+            "source_timezone": status.get("source_timezone"),
             "fetched_at": FeatureBuilder._iso(status.get("fetched_at")),
         }
 

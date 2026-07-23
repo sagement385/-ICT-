@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+  <header><resultCode>00</resultCode><resultMsg>TEST_SUCCESS</resultMsg></header>
+  <body><items></items><numOfRows>1000</numOfRows><pageNo>1</pageNo><totalCount>TEST_INVALID</totalCount></body>
+</response>

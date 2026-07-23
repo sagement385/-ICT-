@@ -221,6 +221,7 @@ async def test_policy_pipeline_persists_and_serializes_results(
             item.total_score for item in response.recommended_hospitals
         ]
         assert latest.warnings == response.warnings
+        assert "HOSPITAL_SOURCE_IDENTITY_UNVERIFIED" in response.warnings
         assert (
             await session.scalar(select(func.count()).select_from(RecommendationRun))
         ) == 1

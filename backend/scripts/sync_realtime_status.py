@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy import select
 
@@ -10,7 +9,11 @@ from app.core.config import get_settings
 from app.core.database import get_session_factory
 from app.core.errors import ApplicationError
 from app.integrations.nemc.client import NemcEmergencyClient
-from app.integrations.nemc.parser import parse_realtime_records, parse_total_count
+from app.integrations.nemc.parser import (
+    calculate_total_pages,
+    parse_realtime_records,
+    parse_total_count,
+)
 from app.modules.hospital.data_source_registry import (
     DataSourceRegistryRepository,
     safe_collection_error_code,
@@ -52,30 +55,24 @@ async def sync_realtime_status() -> int:
                     details={"required_command": "python scripts/sync_emergency_institutions.py"},
                 )
             profile_by_source_id = {profile.source_record_id: profile for profile in profiles}
-            existing_status_rows = list(
-                (
-                    await session.execute(
-                        select(HospitalRealtimeStatus).where(
-                            HospitalRealtimeStatus.source_name == "nemc-emergency-medical"
-                        )
-                    )
-                ).scalars()
-            )
-            existing_by_source_id = {
-                row.source_record_id: row
-                for row in existing_status_rows
-                if row.source_record_id is not None
-            }
             page_no = 1
-            num_of_rows = 100
-            total_count = 0
+            num_of_rows = 1000
+            total_pages = 1
             unmatched = 0
-            while page_no == 1 or (page_no - 1) * num_of_rows < total_count:
+            while page_no <= total_pages:
                 response = await client.fetch_realtime_status(
                     page_no=page_no,
                     num_of_rows=num_of_rows,
                 )
-                records = parse_realtime_records(response.payload)
+                if page_no == 1:
+                    total_pages = calculate_total_pages(
+                        parse_total_count(response.payload),
+                        num_of_rows,
+                    )
+                records = parse_realtime_records(
+                    response.payload,
+                    source_timezone=settings.nemc_source_timezone or None,
+                )
                 raw_event = RawIngestionEvent(
                     source_name="nemc-emergency-medical",
                     source_record_id=f"realtime-status-page-{page_no}",
@@ -90,24 +87,22 @@ async def sync_realtime_status() -> int:
                     if profile is None:
                         unmatched += 1
                         continue
-                    status = existing_by_source_id.get(record.source_record_id)
-                    if status is None:
-                        status = HospitalRealtimeStatus(
-                            id=_stable_status_id(record.source_record_id, page_no),
+                    session.add(
+                        HospitalRealtimeStatus(
+                            hospital_id=profile.hospital_id,
+                            acceptance_status=None,
+                            available_beds=None,
                             source_name="nemc-emergency-medical",
                             source_record_id=record.source_record_id,
+                            raw_payload_id=raw_event.id,
+                            schema_version="nemc-realtime.raw.v1",
+                            source_updated_at=record.source_updated_at,
+                            source_updated_at_raw=record.source_updated_at_raw,
+                            source_timezone=record.source_timezone,
+                            fetched_at=response.fetched_at,
                         )
-                        session.add(status)
-                        existing_by_source_id[record.source_record_id] = status
-                    status.hospital_id = profile.hospital_id
-                    status.acceptance_status = None
-                    status.available_beds = None
-                    status.raw_payload_id = raw_event.id
-                    status.schema_version = "nemc-realtime.raw.v1"
-                    status.source_updated_at = record.source_updated_at
-                    status.fetched_at = response.fetched_at
+                    )
                     loaded += 1
-                total_count = parse_total_count(response.payload)
                 page_no += 1
             await registry.mark_success(
                 source_name="nemc-emergency-medical",
@@ -137,12 +132,6 @@ async def sync_realtime_status() -> int:
             await session.commit()
             raise
     return loaded
-
-
-def _stable_status_id(source_record_id: str, page_no: int) -> str:
-    """Build an idempotent row id without relying on provider identifier length."""
-
-    return str(uuid5(NAMESPACE_URL, f"nemc:{source_record_id}:{page_no}"))
 
 
 def main() -> None:

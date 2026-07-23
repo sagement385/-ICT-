@@ -7,11 +7,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class RecommendationRequest(BaseModel):
-    """Request to run a recommendation for an existing incident."""
+    """Request options; the incident identifier comes only from the URL path."""
 
     model_config = ConfigDict(extra="forbid")
 
-    incident_id: str = Field(min_length=1)
     limit: int = Field(default=3, ge=1, le=3)
 
 
@@ -54,4 +53,3 @@ class RecommendationResultResponse(BaseModel):
     policy: PolicyResponse
     recommended_hospitals: list[RecommendedHospitalResponse]
     warnings: list[str]
-

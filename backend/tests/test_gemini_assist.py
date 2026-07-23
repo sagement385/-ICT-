@@ -68,17 +68,27 @@ def test_assist_endpoint_uses_contract_without_database(monkeypatch: pytest.Monk
     """The chat extraction endpoint can be tested without persistence."""
 
     class FakeAssistService:
+        def __init__(self, client: object) -> None:
+            del client
+
         async def assist(self, text: str) -> PatientAssistResponse:
             assert text == "TEST input"
             return PatientAssistResponse(
-                symptoms=[PatientSymptomInput(code="TEST_SYMPTOM", label="TEST symptom")],
+                symptoms=[
+                    PatientSymptomInput(
+                        code="TEST_SYMPTOM",
+                        label="TEST symptom",
+                        confidence=None,
+                    )
+                ],
                 needs_human_review=True,
                 warnings=["TEST human review"],
                 source=PatientEventSource(model_name="TEST_MODEL", model_version="TEST_VERSION"),
             )
 
     monkeypatch.setattr(patients_api, "PatientAssistService", FakeAssistService)
-    response = TestClient(app).post("/api/v1/patients/assist", json={"text": "TEST input"})
+    with TestClient(app) as client:
+        response = client.post("/api/v1/patients/assist", json={"text": "TEST input"})
     assert response.status_code == 200
     assert response.json()["needs_human_review"] is True
     assert response.json()["extracted_by_ai"] is True

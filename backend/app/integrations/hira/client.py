@@ -2,6 +2,8 @@
 
 from collections.abc import Mapping
 
+import httpx
+
 from app.core.config import get_settings
 from app.integrations.common.base_client import BaseExternalClient, RawExternalResponse
 
@@ -21,11 +23,18 @@ class HiraClient(BaseExternalClient):
         "getNursigGrdInfo2.8",
         "getEtcHstInfo2.8",
     )
+    normalized_detail_endpoints = (
+        "getSpcSbjtSdrInfo2.8",
+        "getDgsbjtInfo2.8",
+        "getSpclDiagInfo2.8",
+        "getMedOftInfo2.8",
+    )
 
     def __init__(
         self,
         base_url: str | None = None,
         base_url_setting_name: str = "HIRA_BASE_URL",
+        http_client: httpx.AsyncClient | None = None,
     ) -> None:
         settings = get_settings()
         super().__init__(
@@ -35,6 +44,7 @@ class HiraClient(BaseExternalClient):
             api_key_param="ServiceKey",
             base_url_setting_name=base_url_setting_name,
             api_key_setting_names=("HIRA_API_KEY", "PUBLIC_DATA_API_KEY"),
+            http_client=http_client,
         )
 
     async def fetch_raw(
@@ -77,6 +87,7 @@ class HiraClient(BaseExternalClient):
         detail_client = HiraClient(
             base_url=settings.hira_detail_base_url,
             base_url_setting_name="HIRA_DETAIL_BASE_URL",
+            http_client=self.http_client,
         )
         return await detail_client.fetch_raw(
             f"/{endpoint.lstrip('/')}",

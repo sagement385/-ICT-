@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/contracts/hospital-summary.schema.json",
+  "title": "Hospital Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "hospital_id",
+    "hospital_name",
+    "hospital_type_code",
+    "location",
+    "phone",
+    "source_name",
+    "source_record_id",
+    "raw_payload_id",
+    "schema_version",
+    "source_updated_at",
+    "freshness",
+    "emergency_profile"
+  ],
+  "properties": {
+    "hospital_id": { "type": "string", "minLength": 1 },
+    "hospital_name": { "type": "string", "minLength": 1 },
+    "hospital_type_code": { "type": ["string", "null"] },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["latitude", "longitude", "address"],
+      "properties": {
+        "latitude": { "type": ["number", "null"], "minimum": -90, "maximum": 90 },
+        "longitude": { "type": ["number", "null"], "minimum": -180, "maximum": 180 },
+        "address": { "type": ["string", "null"] }
+      }
+    },
+    "phone": { "type": ["string", "null"] },
+    "source_name": { "type": "string", "minLength": 1 },
+    "source_record_id": { "type": ["string", "null"] },
+    "raw_payload_id": { "type": ["string", "null"] },
+    "schema_version": { "type": "string", "minLength": 1 },
+    "source_updated_at": { "type": ["string", "null"], "format": "date-time" },
+    "freshness": { "$ref": "#/$defs/freshness" },
+    "emergency_profile": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/emergencyProfile" }
+      ]
+    }
+  },
+  "$defs": {
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "observed_at", "reason"],
+      "properties": {
+        "status": { "type": "string", "enum": ["fresh", "stale", "unknown", "unavailable"] },
+        "observed_at": { "type": ["string", "null"], "format": "date-time" },
+        "reason": { "type": ["string", "null"] }
+      }
+    },
+    "emergencyProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "emergency_type_code",
+        "emergency_type_name",
+        "representative_phone",
+        "emergency_phone",
+        "source_name",
+        "source_record_id",
+        "raw_payload_id",
+        "schema_version",
+        "fetched_at",
+        "source_updated_at",
+        "match_method",
+        "identity_verified",
+        "coordinate_warning",
+        "freshness"
+      ],
+      "properties": {
+        "emergency_type_code": { "type": ["string", "null"] },
+        "emergency_type_name": { "type": ["string", "null"] },
+        "representative_phone": { "type": ["string", "null"] },
+        "emergency_phone": { "type": ["string", "null"] },
+        "source_name": { "type": "string", "minLength": 1 },
+        "source_record_id": { "type": "string", "minLength": 1 },
+        "raw_payload_id": { "type": ["string", "null"] },
+        "schema_version": { "type": "string", "minLength": 1 },
+        "fetched_at": { "type": "string", "format": "date-time" },
+        "source_updated_at": { "type": ["string", "null"], "format": "date-time" },
+        "match_method": { "type": "string", "minLength": 1 },
+        "identity_verified": { "type": "boolean" },
+        "coordinate_warning": { "type": "boolean" },
+        "freshness": { "$ref": "#/$defs/freshness" }
+      }
+    }
+  }
+}

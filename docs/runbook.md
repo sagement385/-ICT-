@@ -123,3 +123,93 @@ python scripts/sync_realtime_status.py
 - `GET /api/v1/hospitals?...` 결과에 `emergency_profile`이 존재함
 - `data_source_registry`의 `nemc-emergency-institution-list` 최근 성공 시각이 존재함
 - 실시간 병상 의미가 검증되기 전에는 `acceptance_status`, `available_beds`가 `null`임
+
+NEMC 공식 문서에서 원본 timezone을 확인하기 전에는 `NEMC_SOURCE_TIMEZONE`을 비워 둡니다. 비어 있으면 `hvidate` 원문은 보존하지만 `source_updated_at`으로 변환하지 않습니다. 근거 확인 후에만 `Asia/Seoul`과 같은 IANA timezone 이름을 설정합니다.
+
+## 최신 migration 확인
+
+```powershell
+cd backend
+python -m alembic upgrade head
+python -m alembic current
+python -m alembic check
+```
+
+정상 상태는 `0006_child_provenance (head)`와 `No new upgrade operations detected.`입니다.
+
+## 운영 상태와 DB 커버리지 확인
+
+프론트엔드는 아래 두 API를 주기적으로 갱신합니다. 키와 원본 payload는 응답하지 않습니다.
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/api/v1/status
+Invoke-RestMethod http://127.0.0.1:8000/api/v1/data-sources
+```
+
+PostgreSQL을 직접 확인할 때는 pgAdmin에서 `.env`의 `DATABASE_URL`과 같은 DB에 연결하거나,
+`psql`에서 다음 읽기 전용 집계를 실행합니다. 환자 주소·좌표와 원본 payload는 일반 점검에서
+조회하지 않습니다.
+
+```sql
+SELECT COUNT(*) AS hospitals FROM hospital;
+SELECT COUNT(*) AS emergency_institutions
+FROM hospital_emergency_profile WHERE active IS TRUE;
+SELECT COUNT(DISTINCT hospital_id) AS realtime_coverage
+FROM hospital_realtime_status;
+SELECT source_name, verified, COUNT(*)
+FROM hospital_source_identity
+GROUP BY source_name, verified
+ORDER BY source_name, verified;
+SELECT source_name, last_success_at, last_failure_at, last_error
+FROM data_source_registry
+ORDER BY source_name;
+SELECT COUNT(*) AS active_policies
+FROM recommendation_policy WHERE enabled IS TRUE;
+```
+
+자동 이름 매칭은 `verified=false`로 남습니다. 운영자가 원본 HIRA/NEMC 기관 식별자와 주소를
+대조해 검토하기 전에는 확정 매핑으로 표시하지 않습니다. 화면의 `기관 식별자 자동 매칭 ·
+사람 검토 필요` 경고가 사라졌는지 확인합니다.
+
+## 확인된 병원 상세정보 동기화
+
+공식 응급기관에 한정해 실제 응답 구조가 검증된 상세 endpoint만 수집하려면 다음을 실행합니다.
+
+```powershell
+cd backend
+python scripts/sync_hospital_detail_data.py --emergency-only --normalized-only
+```
+
+현재 정규화 대상은 확인된 진료과·전문의, 특수진료, 의료장비 endpoint입니다. 시설·병상처럼
+의미가 확인되지 않은 필드는 원본만 보존하고 운영 컬럼을 임의로 채우지 않습니다.
+
+## Speech AI 선택 서비스
+
+실제 STT와 엔터티 모델이 정해지지 않아도 프로세스 health는 확인할 수 있습니다.
+
+```powershell
+cd speech-ai
+pip install -e ".[dev]"
+uvicorn app.main:app --port 8100
+Invoke-RestMethod http://127.0.0.1:8100/health
+Invoke-RestMethod http://127.0.0.1:8100/status
+```
+
+provider가 비어 있으면 `/status`는 `not_configured`를 반환합니다. 이는 정상적인 fail-closed
+상태이며 가짜 전사나 환자 JSON을 생성하지 않습니다.
+
+## NEMC 주기 수집 worker
+
+수집 간격은 제공기관 정책과 팀 운영 기준을 확인한 뒤 `.env`의
+`NEMC_SYNC_INTERVAL_SECONDS`에 명시합니다. 비어 있으면 임의 주기로 실행하지 않습니다.
+
+```powershell
+cd backend
+python scripts/run_realtime_sync_worker.py --once
+python scripts/run_realtime_sync_worker.py
+```
+
+Docker에서는 `docker compose --profile sync up --build`로 선택 실행합니다. 매 cycle은
+`data_source_registry`의 성공/실패 시각을 갱신하며, 오류 메시지에는 키나 원본 응답을 넣지
+않습니다. DB snapshot 보존 기간은 아직 운영 정책이 없으므로 별도 retention 작업을 자동
+수행하지 않습니다.

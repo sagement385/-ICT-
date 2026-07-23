@@ -14,6 +14,8 @@ class NemcRealtimeRecord(BaseModel):
     source_record_id: str
     institution_name: str | None
     source_updated_at: datetime | None
+    source_updated_at_raw: str | None
+    source_timezone: str
     raw_fields: dict[str, Any]
 
 

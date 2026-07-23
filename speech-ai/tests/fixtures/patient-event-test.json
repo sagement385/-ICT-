@@ -1,0 +1,18 @@
+{
+  "incident_id": "TEST_PATIENT_001",
+  "observed_at": "2026-01-01T00:00:00Z",
+  "location": {
+    "latitude": null,
+    "longitude": null,
+    "address_text": "TEST_ADDRESS_REDACTED"
+  },
+  "symptoms": [],
+  "consciousness_status": null,
+  "breathing_status": null,
+  "bleeding_status": null,
+  "urgency_level": null,
+  "source": {
+    "model_name": "TEST_MODEL",
+    "model_version": "TEST_VERSION"
+  }
+}

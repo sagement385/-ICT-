@@ -1,2 +1,1 @@
-"""Operational scripts; none seed or fabricate data by default."""
-
+"""Operational command modules; application services do not import these directly."""
