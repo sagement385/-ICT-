@@ -2,9 +2,27 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/contracts/hospital-candidate.schema.json",
   "title": "Hospital Candidate",
+  "description": "Hospital summary enriched with source-backed capability and realtime data for recommendation evaluation.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["hospital_id", "hospital_name", "location", "source", "freshness"],
+  "required": [
+    "hospital_id",
+    "hospital_name",
+    "hospital_type_code",
+    "location",
+    "phone",
+    "source_name",
+    "source_record_id",
+    "raw_payload_id",
+    "schema_version",
+    "source_updated_at",
+    "freshness",
+    "emergency_profile",
+    "departments",
+    "equipment",
+    "capabilities",
+    "realtime_status"
+  ],
   "properties": {
     "hospital_id": { "type": "string", "minLength": 1 },
     "hospital_name": { "type": "string", "minLength": 1 },
@@ -19,32 +37,192 @@
         "address": { "type": ["string", "null"] }
       }
     },
-    "departments": { "type": "array", "items": { "type": "object" } },
-    "equipment": { "type": "array", "items": { "type": "object" } },
-    "capabilities": { "type": "array", "items": { "type": "object" } },
-    "source": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["source_name", "source_record_id", "fetched_at", "schema_version", "raw_payload_id"],
-      "properties": {
-        "source_name": { "type": "string" },
-        "source_record_id": { "type": ["string", "null"] },
-        "fetched_at": { "type": "string", "format": "date-time" },
-        "source_updated_at": { "type": ["string", "null"] },
-        "schema_version": { "type": "string" },
-        "raw_payload_id": { "type": ["string", "null"] }
-      }
+    "phone": { "type": ["string", "null"] },
+    "source_name": { "type": "string", "minLength": 1 },
+    "source_record_id": { "type": ["string", "null"] },
+    "raw_payload_id": { "type": ["string", "null"] },
+    "schema_version": { "type": "string", "minLength": 1 },
+    "source_updated_at": { "type": ["string", "null"], "format": "date-time" },
+    "freshness": { "$ref": "#/$defs/freshness" },
+    "emergency_profile": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/emergencyProfile" }
+      ]
     },
+    "departments": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/department" }
+    },
+    "equipment": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/equipment" }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/capability" }
+    },
+    "realtime_status": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/realtimeStatus" }
+      ]
+    }
+  },
+  "$defs": {
     "freshness": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["status", "observed_at"],
+      "required": ["status", "observed_at", "reason"],
       "properties": {
-        "status": { "type": "string", "enum": ["fresh", "stale", "unknown"] },
-        "observed_at": { "type": ["string", "null"] },
+        "status": { "type": "string", "enum": ["fresh", "stale", "unknown", "unavailable"] },
+        "observed_at": { "type": ["string", "null"], "format": "date-time" },
         "reason": { "type": ["string", "null"] }
+      }
+    },
+    "emergencyProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "emergency_type_code",
+        "emergency_type_name",
+        "representative_phone",
+        "emergency_phone",
+        "source_name",
+        "source_record_id",
+        "raw_payload_id",
+        "schema_version",
+        "fetched_at",
+        "source_updated_at",
+        "match_method",
+        "identity_verified",
+        "coordinate_warning",
+        "freshness"
+      ],
+      "properties": {
+        "emergency_type_code": { "type": ["string", "null"] },
+        "emergency_type_name": { "type": ["string", "null"] },
+        "representative_phone": { "type": ["string", "null"] },
+        "emergency_phone": { "type": ["string", "null"] },
+        "source_name": { "type": "string", "minLength": 1 },
+        "source_record_id": { "type": "string", "minLength": 1 },
+        "raw_payload_id": { "type": ["string", "null"] },
+        "schema_version": { "type": "string", "minLength": 1 },
+        "fetched_at": { "type": "string", "format": "date-time" },
+        "source_updated_at": { "type": ["string", "null"], "format": "date-time" },
+        "match_method": { "type": "string", "minLength": 1 },
+        "identity_verified": { "type": "boolean" },
+        "coordinate_warning": { "type": "boolean" },
+        "freshness": { "$ref": "#/$defs/freshness" }
+      }
+    },
+    "department": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "department_code",
+        "department_name",
+        "specialist_count",
+        "source_name",
+        "source_record_id",
+        "raw_payload_id",
+        "schema_version",
+        "source_updated_at",
+        "fetched_at"
+      ],
+      "properties": {
+        "department_code": { "type": ["string", "null"] },
+        "department_name": { "type": "string", "minLength": 1 },
+        "specialist_count": { "type": ["integer", "null"], "minimum": 0 },
+        "source_name": { "type": ["string", "null"] },
+        "source_record_id": { "type": ["string", "null"] },
+        "raw_payload_id": { "type": ["string", "null"] },
+        "schema_version": { "type": ["string", "null"] },
+        "source_updated_at": { "type": ["string", "null"], "format": "date-time" },
+        "fetched_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "equipment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "equipment_code",
+        "equipment_name",
+        "equipment_count",
+        "source_name",
+        "source_record_id",
+        "raw_payload_id",
+        "schema_version",
+        "source_updated_at",
+        "fetched_at"
+      ],
+      "properties": {
+        "equipment_code": { "type": ["string", "null"] },
+        "equipment_name": { "type": "string", "minLength": 1 },
+        "equipment_count": { "type": ["integer", "null"], "minimum": 0 },
+        "source_name": { "type": ["string", "null"] },
+        "source_record_id": { "type": ["string", "null"] },
+        "raw_payload_id": { "type": ["string", "null"] },
+        "schema_version": { "type": ["string", "null"] },
+        "source_updated_at": { "type": ["string", "null"], "format": "date-time" },
+        "fetched_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability_code",
+        "capability_name",
+        "available",
+        "source_name",
+        "source_record_id",
+        "raw_payload_id",
+        "schema_version",
+        "source_updated_at",
+        "fetched_at"
+      ],
+      "properties": {
+        "capability_code": { "type": ["string", "null"] },
+        "capability_name": { "type": "string", "minLength": 1 },
+        "available": { "type": ["boolean", "null"] },
+        "source_name": { "type": ["string", "null"] },
+        "source_record_id": { "type": ["string", "null"] },
+        "raw_payload_id": { "type": ["string", "null"] },
+        "schema_version": { "type": ["string", "null"] },
+        "source_updated_at": { "type": ["string", "null"], "format": "date-time" },
+        "fetched_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "realtimeStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "acceptance_status",
+        "available_beds",
+        "source_name",
+        "source_record_id",
+        "raw_payload_id",
+        "schema_version",
+        "source_updated_at",
+        "source_updated_at_raw",
+        "source_timezone",
+        "fetched_at",
+        "freshness"
+      ],
+      "properties": {
+        "acceptance_status": { "type": ["string", "null"] },
+        "available_beds": { "type": ["integer", "null"], "minimum": 0 },
+        "source_name": { "type": "string", "minLength": 1 },
+        "source_record_id": { "type": ["string", "null"] },
+        "raw_payload_id": { "type": ["string", "null"] },
+        "schema_version": { "type": "string", "minLength": 1 },
+        "source_updated_at": { "type": ["string", "null"], "format": "date-time" },
+        "source_updated_at_raw": { "type": ["string", "null"] },
+        "source_timezone": { "type": "string", "minLength": 1 },
+        "fetched_at": { "type": "string", "format": "date-time" },
+        "freshness": { "$ref": "#/$defs/freshness" }
       }
     }
   }
 }
-

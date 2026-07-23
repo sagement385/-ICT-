@@ -1,26 +1,28 @@
-"""Routing provider status for the test dashboard."""
+"""Routing API endpoints with service-layer orchestration."""
 
-from fastapi import APIRouter
+import httpx
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.errors import ApplicationError
+from app.core.database import get_db_session
+from app.core.dependencies import get_external_http_client
 from app.integrations.naver_maps.directions_client import NaverDirectionsClient
 from app.modules.routing.provider import NaverRoutingProvider
 from app.modules.routing.schemas import (
-    RouteBatchError,
-    RouteBatchItem,
     RouteBatchQuery,
     RouteBatchResponse,
     RouteQuery,
     RouteSnapshotData,
 )
+from app.modules.routing.service import RoutingService
 
 router = APIRouter(prefix="/routing", tags=["routing"])
 
 
 @router.get("/status")
 async def routing_status() -> dict[str, object]:
-    """Expose configuration and the process-local Directions test budget."""
+    """Expose configuration and the process-local Directions safety budget."""
 
     settings = get_settings()
     client = NaverDirectionsClient()
@@ -30,41 +32,33 @@ async def routing_status() -> dict[str, object]:
         "configured": configured,
         "calls_used": client.calls_used,
         "calls_limit": client.calls_limit,
+        "cache_max_age_seconds": settings.route_data_max_age_seconds,
+        "max_concurrency": settings.routing_max_concurrency,
         "status": "configured" if configured else "not_configured",
     }
 
 
 @router.post("/test", response_model=RouteSnapshotData)
-async def test_route(query: RouteQuery) -> RouteSnapshotData:
-    """Fetch one real Naver Directions 5 route for integration verification."""
+async def test_route(
+    query: RouteQuery,
+    http_client: httpx.AsyncClient = Depends(get_external_http_client),
+) -> RouteSnapshotData:
+    """Fetch one real route for explicit integration diagnostics."""
 
-    return await NaverRoutingProvider().get_route(query)
+    return await NaverRoutingProvider(
+        NaverDirectionsClient(http_client=http_client)
+    ).get_route(query)
 
 
 @router.post("/batch", response_model=RouteBatchResponse)
-async def batch_routes(query: RouteBatchQuery) -> RouteBatchResponse:
-    """Fetch real routes for visible map destinations without fake fallbacks."""
+async def batch_routes(
+    query: RouteBatchQuery,
+    session: AsyncSession = Depends(get_db_session),
+    http_client: httpx.AsyncClient = Depends(get_external_http_client),
+) -> RouteBatchResponse:
+    """Return real or explicitly valid cached routes for stored canonical records."""
 
-    provider = NaverRoutingProvider()
-    routes: list[RouteBatchItem] = []
-    errors: list[RouteBatchError] = []
-    for destination in query.destinations:
-        route_query = RouteQuery(
-            origin_latitude=query.origin_latitude,
-            origin_longitude=query.origin_longitude,
-            destination_latitude=destination.latitude,
-            destination_longitude=destination.longitude,
-        )
-        try:
-            route = await provider.get_route(route_query)
-        except ApplicationError as error:
-            errors.append(
-                RouteBatchError(
-                    hospital_id=destination.hospital_id,
-                    code=error.code,
-                    message=error.message,
-                )
-            )
-            continue
-        routes.append(RouteBatchItem(hospital_id=destination.hospital_id, route=route))
-    return RouteBatchResponse(routes=routes, errors=errors)
+    return await RoutingService(
+        session,
+        NaverRoutingProvider(NaverDirectionsClient(http_client=http_client)),
+    ).get_batch(query)

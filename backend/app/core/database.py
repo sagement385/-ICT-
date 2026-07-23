@@ -70,3 +70,12 @@ async def check_database_connection() -> tuple[bool, str | None]:
         return False, "DATABASE_CONNECTION_FAILED"
     return True, None
 
+
+async def close_database() -> None:
+    """Dispose the process-wide engine during application shutdown."""
+
+    global _engine, _session_factory
+    if _engine is not None:
+        await _engine.dispose()
+    _engine = None
+    _session_factory = None

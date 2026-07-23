@@ -7,21 +7,20 @@
     "longitude": null,
     "address": "TEST_ADDRESS_REDACTED"
   },
-  "departments": [],
-  "equipment": [],
-  "capabilities": [],
-  "source": {
-    "source_name": "TEST_SOURCE",
-    "source_record_id": "TEST_RECORD_001",
-    "fetched_at": "2026-01-01T00:00:00Z",
-    "source_updated_at": null,
-    "schema_version": "TEST_SCHEMA_V1",
-    "raw_payload_id": "TEST_RAW_001"
-  },
+  "phone": null,
+  "source_name": "TEST_SOURCE",
+  "source_record_id": "TEST_RECORD_001",
+  "raw_payload_id": "TEST_RAW_001",
+  "schema_version": "TEST_SCHEMA_V1",
+  "source_updated_at": null,
   "freshness": {
     "status": "unknown",
     "observed_at": null,
     "reason": "TEST_DATA"
-  }
+  },
+  "emergency_profile": null,
+  "departments": [],
+  "equipment": [],
+  "capabilities": [],
+  "realtime_status": null
 }
-

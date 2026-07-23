@@ -70,6 +70,11 @@ class NaverRoutingProvider:
             traffic_summary="real-time-provider-response",
             fetched_at=raw.fetched_at,
             path=self._path(route),
+            source_name="Naver Directions 5",
+            source_record_id=raw.request_id,
+            raw_payload_id=None,
+            schema_version="naver-directions5.v1",
+            source_metadata={"http_status_code": raw.status_code},
         )
 
     @property

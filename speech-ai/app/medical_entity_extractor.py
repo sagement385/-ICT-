@@ -2,6 +2,7 @@
 
 from typing import Protocol
 
+from app.errors import SpeechProviderNotConfigured
 from app.schemas import PatientEvent
 
 
@@ -19,5 +20,4 @@ class NotConfiguredMedicalEntityExtractor:
         """Stop instead of creating a fake patient state."""
 
         del transcript, incident_id
-        raise RuntimeError("실제 의료 엔터티 추출 모델이 설정되지 않았습니다.")
-
+        raise SpeechProviderNotConfigured(["SPEECH_ENTITY_EXTRACTOR"])

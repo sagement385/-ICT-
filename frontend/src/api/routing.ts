@@ -5,6 +5,8 @@ export type RoutingStatus = {
   configured: boolean;
   calls_used: number;
   calls_limit: number | null;
+  cache_max_age_seconds: number | null;
+  max_concurrency: number;
   status: string;
 };
 
@@ -22,6 +24,11 @@ export type RouteSnapshot = {
   traffic_summary: string | null;
   fetched_at: string;
   path: Array<[number, number]> | null;
+  source_name: string;
+  source_record_id: string | null;
+  raw_payload_id: string | null;
+  schema_version: string;
+  source_metadata: Record<string, unknown>;
 };
 
 export type RouteDestination = {
@@ -33,15 +40,17 @@ export type RouteDestination = {
 export type HospitalRoute = {
   hospital_id: string;
   route: RouteSnapshot;
+  cache_status: "hit" | "miss";
 };
 
 export type RouteBatchResult = {
   routes: HospitalRoute[];
   errors: Array<{ hospital_id: string; code: string; message: string }>;
+  generated_at: string;
 };
 
-export function getRoutingStatus(): Promise<RoutingStatus> {
-  return requestJson<RoutingStatus>("/api/v1/routing/status");
+export function getRoutingStatus(signal?: AbortSignal): Promise<RoutingStatus> {
+  return requestJson<RoutingStatus>("/api/v1/routing/status", { signal });
 }
 
 export function testRoute(query: RouteQuery): Promise<RouteSnapshot> {
@@ -52,11 +61,14 @@ export function testRoute(query: RouteQuery): Promise<RouteSnapshot> {
 }
 
 export function getHospitalRoutes(
-  origin: Pick<RouteQuery, "origin_latitude" | "origin_longitude">,
-  destinations: RouteDestination[],
+  incidentId: string,
+  hospitalIds: string[],
+  signal?: AbortSignal,
 ): Promise<RouteBatchResult> {
   return requestJson<RouteBatchResult>("/api/v1/routing/batch", {
     method: "POST",
-    body: JSON.stringify({ ...origin, destinations }),
+    body: JSON.stringify({ incident_id: incidentId, hospital_ids: hospitalIds }),
+    signal,
+    timeoutMs: 45_000,
   });
 }

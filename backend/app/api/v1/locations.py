@@ -2,19 +2,49 @@
 
 from typing import Any
 
-from fastapi import APIRouter, Query
+import httpx
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.dependencies import get_external_http_client
 from app.core.errors import ApplicationError
 from app.integrations.naver_maps.geocoding_client import NaverGeocodingClient
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 
-@router.get("/geocode")
-async def geocode_address(address: str = Query(min_length=1)) -> dict[str, Any]:
+class GeocodeRequest(BaseModel):
+    """Address body that stays out of access-log query strings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    address: str = Field(min_length=1, max_length=500)
+
+
+@router.get("/geocode", deprecated=True)
+async def geocode_address(
+    address: str = Query(min_length=1),
+    http_client: httpx.AsyncClient = Depends(get_external_http_client),
+) -> dict[str, Any]:
     """Convert an entered address only when Naver returns a verified result."""
 
-    response = await NaverGeocodingClient().fetch_raw(address)
+    return await _geocode(address, http_client)
+
+
+@router.post("/geocode")
+async def geocode_address_private(
+    request: GeocodeRequest,
+    http_client: httpx.AsyncClient = Depends(get_external_http_client),
+) -> dict[str, Any]:
+    """Convert an address supplied in the body to avoid URL-based logging."""
+
+    return await _geocode(request.address, http_client)
+
+
+async def _geocode(address: str, http_client: httpx.AsyncClient) -> dict[str, Any]:
+    """Convert an entered address only when Naver returns a verified result."""
+
+    response = await NaverGeocodingClient(http_client=http_client).fetch_raw(address)
     payload = response.payload
     if not isinstance(payload, dict):
         raise ApplicationError(
@@ -28,7 +58,7 @@ async def geocode_address(address: str = Query(min_length=1)) -> dict[str, Any]:
             code="ADDRESS_NOT_FOUND",
             message="입력한 주소의 좌표를 확인하지 못했습니다.",
             status_code=404,
-            details={"address": address},
+            details={},
         )
     result = addresses[0]
     latitude = _number(result.get("y"))

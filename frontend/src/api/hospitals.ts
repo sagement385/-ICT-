@@ -1,15 +1,16 @@
-import type { Hospital } from "../types/hospital";
+import type { HospitalCandidate } from "../types/hospital";
 import { requestJson } from "./client";
+import { isHospitalCandidateArray } from "./validation";
 
 export function getNearbyHospitals(
-  latitude: number,
-  longitude: number,
+  incidentId: string,
   radiusKm = 10,
-): Promise<Hospital[]> {
-  const params = new URLSearchParams({
-    latitude: String(latitude),
-    longitude: String(longitude),
-    radius_km: String(radiusKm),
+  signal?: AbortSignal,
+): Promise<HospitalCandidate[]> {
+  return requestJson<HospitalCandidate[]>("/api/v1/hospitals/nearby-candidates", {
+    method: "POST",
+    body: JSON.stringify({ incident_id: incidentId, radius_km: radiusKm }),
+    signal,
+    validate: isHospitalCandidateArray,
   });
-  return requestJson<Hospital[]>(`/api/v1/hospitals?${params.toString()}`);
 }

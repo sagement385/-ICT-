@@ -12,6 +12,7 @@ class NemcEmergencyClient(BaseExternalClient):
 
     realtime_endpoint = "getEmrrmRltmUsefulSckbdInfoInqire"
     basic_endpoint = "getEgytBassInfoInqire"
+    emergency_list_endpoint = "getEgytListInfoInqire"
 
     def __init__(self, base_url: str | None = None) -> None:
         """Create a client using the configured public-data key."""
@@ -22,6 +23,8 @@ class NemcEmergencyClient(BaseExternalClient):
             api_key=settings.nemc_api_key or settings.public_data_api_key,
             source_name="nemc-emergency-medical",
             api_key_param="serviceKey",
+            base_url_setting_name="NEMC_BASE_URL",
+            api_key_setting_names=("NEMC_API_KEY", "PUBLIC_DATA_API_KEY"),
         )
 
     async def fetch_raw(
@@ -58,6 +61,18 @@ class NemcEmergencyClient(BaseExternalClient):
         params: dict[str, str | int] = {"pageNo": page_no, "numOfRows": num_of_rows}
         _add_region_params(params, stage1, stage2)
         return await self.fetch_raw(self.basic_endpoint, params=params)
+
+    async def fetch_emergency_institutions(
+        self,
+        page_no: int = 1,
+        num_of_rows: int = 1000,
+    ) -> RawExternalResponse:
+        """Fetch the verified emergency-institution list without region assumptions."""
+
+        return await self.fetch_raw(
+            self.emergency_list_endpoint,
+            params={"pageNo": page_no, "numOfRows": num_of_rows},
+        )
 
 
 def _add_region_params(

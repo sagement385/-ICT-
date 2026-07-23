@@ -10,9 +10,9 @@ class Location(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    latitude: float | None = Field(default=None, ge=-90, le=90)
-    longitude: float | None = Field(default=None, ge=-180, le=180)
-    address_text: str | None = None
+    latitude: float | None = Field(ge=-90, le=90)
+    longitude: float | None = Field(ge=-180, le=180)
+    address_text: str | None
 
     @model_validator(mode="after")
     def paired_coordinates(self) -> "Location":
@@ -30,7 +30,7 @@ class Symptom(BaseModel):
 
     code: str = Field(min_length=1)
     label: str = Field(min_length=1)
-    confidence: float | None = Field(default=None, ge=0, le=1)
+    confidence: float | None = Field(ge=0, le=1)
 
 
 class Source(BaseModel):
@@ -51,9 +51,8 @@ class PatientEvent(BaseModel):
     observed_at: datetime
     location: Location
     symptoms: list[Symptom]
-    consciousness_status: str | None = None
-    breathing_status: str | None = None
-    bleeding_status: str | None = None
-    urgency_level: str | None = None
+    consciousness_status: str | None
+    breathing_status: str | None
+    bleeding_status: str | None
+    urgency_level: str | None
     source: Source
-

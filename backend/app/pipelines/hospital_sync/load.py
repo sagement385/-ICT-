@@ -1,28 +1,31 @@
 """Hospital normalized loading stage."""
 
-from typing import Any
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.integrations.hira.parser import HiraBasicHospital
 from app.modules.hospital.models import Hospital
 
 
-async def load(session: AsyncSession, record: dict[str, Any]) -> None:
+async def load(
+    session: AsyncSession,
+    record: HiraBasicHospital,
+    raw_payload_id: str,
+) -> None:
     """Upsert one normalized HIRA basic record into the hospital table."""
 
     await session.merge(
         Hospital(
-            hospital_id=str(record["hospital_id"]),
-            hospital_name=str(record["hospital_name"]),
-            hospital_type_code=record.get("hospital_type_code"),
-            address=record.get("address"),
-            latitude=record.get("latitude"),
-            longitude=record.get("longitude"),
-            phone=record.get("phone"),
+            hospital_id=record.hospital_id,
+            hospital_name=record.hospital_name,
+            hospital_type_code=record.hospital_type_code,
+            address=record.address,
+            latitude=record.latitude,
+            longitude=record.longitude,
+            phone=record.phone,
             source_name="hira-hospital-info",
-            source_record_id=str(record["hospital_id"]),
-            raw_payload_id=record.get("raw_payload_id"),
+            source_record_id=record.hospital_id,
+            raw_payload_id=raw_payload_id,
             schema_version="hira-hospital-info.v1",
-            source_updated_at=record.get("source_updated_at"),
+            source_updated_at=record.source_updated_at,
         )
     )

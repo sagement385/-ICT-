@@ -2,6 +2,8 @@
 
 from typing import Protocol
 
+from app.errors import SpeechProviderNotConfigured
+
 
 class SttProvider(Protocol):
     """Contract for a real STT implementation selected by deployment config."""
@@ -17,5 +19,4 @@ class NotConfiguredSttProvider:
         """Stop instead of returning fabricated transcription."""
 
         del audio_path
-        raise RuntimeError("실제 STT provider가 설정되지 않았습니다.")
-
+        raise SpeechProviderNotConfigured(["SPEECH_STT_PROVIDER"])

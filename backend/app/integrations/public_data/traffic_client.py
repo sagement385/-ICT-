@@ -12,10 +12,13 @@ class TrafficClient(BaseExternalClient):
     dataset_id = "15040463"
 
     def __init__(self, base_url: str | None = None) -> None:
+        settings = get_settings()
         super().__init__(
-            base_url=base_url,
-            api_key=get_settings().molit_traffic_api_key,
+            base_url=base_url or settings.molit_traffic_base_url,
+            api_key=settings.molit_traffic_api_key,
             source_name="molit-traffic",
+            base_url_setting_name="MOLIT_TRAFFIC_BASE_URL",
+            api_key_setting_names=("MOLIT_TRAFFIC_API_KEY",),
         )
 
     async def fetch_raw(
@@ -26,4 +29,3 @@ class TrafficClient(BaseExternalClient):
         """Fetch raw traffic information."""
 
         return await self.request("GET", path, params=params)
-

@@ -1,6 +1,6 @@
 # 데이터베이스 스키마
 
-초기 Alembic migration은 다음 테이블만 생성합니다. 실제 환자·병원·정책·가중치 row는 삽입하지 않습니다.
+Alembic `0001_initial_schema`부터 `0006_child_provenance`까지 다음 구조를 관리합니다. migration은 실제 환자·병원·정책·가중치 row를 삽입하지 않습니다.
 
 | 영역 | 테이블 | 목적 |
 | --- | --- | --- |
@@ -11,6 +11,29 @@
 | 정책 | `recommendation_policy`, `recommendation_weight` | DB 관리 정책과 가중치 |
 | 실행 | `recommendation_run`, `recommendation_result` | 추천 실행과 결과 감사 |
 | 출처 | `data_source_registry` | 데이터 소스 상태와 마지막 성공/실패 |
+| 출처 식별자 | `hospital_source_identity` | HIRA canonical 병원과 외부 기관 ID의 검토 가능한 매핑 후보 |
 
 정책 가중치는 애플리케이션 상수로 복제하지 않습니다. 가중치가 없으면 추천을 중단합니다.
 
+`0002`는 정책 factor의 source field·방향·정규화·누락/오래된 데이터 처리 방식·제외 조건을 저장하고, `route_snapshot` 및 추천 결과 provenance를 추가합니다. `0003`은 모델에 선언된 조회 index만 추가합니다. 기존 테이블이나 운영 row를 삭제하지 않습니다.
+
+## `0004_emergency_profiles`
+
+`hospital_emergency_profile`은 NEMC 공식 응급의료기관 `hpid`를 HIRA의 canonical
+`hospital_id`와 연결합니다. 출처 기관명·주소·좌표·응급기관 분류·전화·raw payload ID,
+매칭 방식, 좌표 경고, 최신성 시각과 활성 상태를 보존합니다. API 후보 조회와 추천은
+활성 profile이 있는 병원만 사용합니다. 마이그레이션은 테이블만 생성하며 병원·환자·정책
+데이터를 seed하지 않습니다.
+
+## `0005_identity_route_indexes`
+
+`hospital_source_identity`는 `(source_name, source_record_id)`를 유일하게 보관하고 자동 이름 매칭을 기본 `verified=false`로 기록합니다. 검토된 매핑을 자동 수집 결과가 덮어쓰지 않습니다.
+
+`route_snapshot`에는 `expires_at`, `created_at`을 추가하고 사건·병원·수집시각 복합 인덱스를 둡니다. 유효시간 설정이 없고 명시적 `expires_at`도 없는 경로는 캐시로 재사용하지 않습니다. 실시간 상태에는 원본 시각 문자열과 원본 timezone 상태를 보존하며, 병원별 최신 상태·경로·추천 실행 조회용 복합 인덱스와 정책·가중치 unique 제약을 추가합니다.
+
+## `0006_child_provenance`
+
+`hospital_department`, `hospital_equipment`, `hospital_capability`에 `source_name`,
+`source_record_id`, `raw_payload_id`, `schema_version`, `fetched_at`을 추가합니다. 기존 행을
+임의 출처로 채우지 않기 위해 nullable이며, 이후 실제 HIRA 상세 동기화로 생성된 행만
+원본 수집 이벤트와 연결합니다.

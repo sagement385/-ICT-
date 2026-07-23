@@ -1,3 +1,7 @@
+export type RecommendationRequest = {
+  limit?: number;
+};
+
 export type RecommendationResult = {
   incident_id: string;
   recommendation_run_id: string;
@@ -21,4 +25,3 @@ export type RecommendationResult = {
   }>;
   warnings: string[];
 };
-

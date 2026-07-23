@@ -1,0 +1,50 @@
+{
+  "now": "2026-01-01T00:00:00+00:00",
+  "freshness_threshold_seconds": 31536000,
+  "patient": {
+    "incident_id": "TEST_PATIENT_001",
+    "latitude": 0.0,
+    "longitude": 0.0,
+    "symptom_code": "TEST_SYMPTOM_001",
+    "symptom_label": "TEST_SYMPTOM_LABEL"
+  },
+  "hospitals": [
+    {
+      "hospital_id": "TEST_HOSPITAL_001",
+      "hospital_name": "TEST_HOSPITAL_NAME_001",
+      "latitude": 0.01,
+      "longitude": 0.01,
+      "duration_seconds": 120,
+      "distance_meters": 1000
+    },
+    {
+      "hospital_id": "TEST_HOSPITAL_002",
+      "hospital_name": "TEST_HOSPITAL_NAME_002",
+      "latitude": 0.02,
+      "longitude": 0.02,
+      "duration_seconds": 240,
+      "distance_meters": 2000
+    }
+  ],
+  "policy": {
+    "policy_name": "TEST_POLICY_001",
+    "policy_version": "TEST_VERSION_001",
+    "factor_name": "TEST_ROUTE_DURATION_FACTOR",
+    "weight_value": 1.0,
+    "source_field": "route.duration_seconds",
+    "direction": "lower_is_better",
+    "normalization": "min_max",
+    "minimum": 0,
+    "maximum": 600,
+    "explanation": "TEST_POLICY_EXPLANATION"
+  },
+  "registry": {
+    "source_name": "TEST_DATA_SOURCE_001",
+    "dataset_id": "TEST_DATASET_001",
+    "provider_name": "TEST_PROVIDER_001",
+    "base_url": "https://example.invalid/test-source",
+    "auth_type": "TEST_AUTH_TYPE",
+    "schema_version": "test-source.v1",
+    "error_code": "TEST_COLLECTION_ERROR"
+  }
+}

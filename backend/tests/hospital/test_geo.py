@@ -37,6 +37,10 @@ def test_candidate_filter_excludes_fixture_hospitals_outside_radius() -> None:
         observed_at=datetime(2026, 1, 1, tzinfo=UTC),
         location={"latitude": origin["latitude"], "longitude": origin["longitude"], "address_text": None},
         symptoms=[],
+        consciousness_status=None,
+        breathing_status=None,
+        bleeding_status=None,
+        urgency_level=None,
         source={"model_name": "TEST_MODEL", "model_version": "TEST_VERSION"},
     )
     hospitals = [

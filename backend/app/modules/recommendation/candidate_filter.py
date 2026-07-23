@@ -23,18 +23,23 @@ class CandidateFilter:
         """Limit candidates by the configured 5-10 km geographic search radius."""
 
         del policy
-        if patient.location.latitude is None or patient.location.longitude is None:
+        patient_latitude = patient.location.latitude
+        patient_longitude = patient.location.longitude
+        if patient_latitude is None or patient_longitude is None:
             return []
         radius_km = get_settings().candidate_radius_km
-        return [
-            hospital
-            for hospital in hospitals
-            if hospital.latitude is not None
-            and hospital.longitude is not None
-            and distance_km(
-                patient.location.latitude,
-                patient.location.longitude,
-                hospital.latitude,
-                hospital.longitude,
-            ) <= radius_km
-        ]
+        candidates: list[tuple[float, Hospital]] = []
+        for hospital in hospitals:
+            hospital_latitude = hospital.latitude
+            hospital_longitude = hospital.longitude
+            if hospital_latitude is None or hospital_longitude is None:
+                continue
+            candidate_distance = distance_km(
+                patient_latitude,
+                patient_longitude,
+                hospital_latitude,
+                hospital_longitude,
+            )
+            if candidate_distance <= radius_km:
+                candidates.append((candidate_distance, hospital))
+        return [hospital for _, hospital in sorted(candidates, key=lambda item: item[0])]

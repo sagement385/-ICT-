@@ -1,0 +1,17 @@
+{
+  "response": {
+    "header": {"resultCode": "00", "resultMsg": "TEST_SUCCESS"},
+    "body": {
+      "items": {
+        "item": [
+          {
+            "oftCd": "TEST_EQUIPMENT_CODE_001",
+            "oftCdNm": "TEST_EQUIPMENT_NAME_001",
+            "oftCnt": "2"
+          }
+        ]
+      },
+      "totalCount": 1
+    }
+  }
+}

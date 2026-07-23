@@ -3,7 +3,19 @@
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -46,6 +58,11 @@ class HospitalDepartment(Base):
     department_code: Mapped[str | None] = mapped_column(String(128), nullable=True)
     department_name: Mapped[str] = mapped_column(String(256), nullable=False)
     specialist_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    source_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    source_record_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    raw_payload_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    schema_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     source_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
@@ -59,6 +76,11 @@ class HospitalEquipment(Base):
     equipment_code: Mapped[str | None] = mapped_column(String(128), nullable=True)
     equipment_name: Mapped[str] = mapped_column(String(256), nullable=False)
     equipment_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    source_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    source_record_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    raw_payload_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    schema_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     source_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
@@ -72,6 +94,11 @@ class HospitalCapability(Base):
     capability_code: Mapped[str | None] = mapped_column(String(128), nullable=True)
     capability_name: Mapped[str] = mapped_column(String(256), nullable=False)
     available: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    source_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    source_record_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    raw_payload_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    schema_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     source_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
@@ -79,6 +106,14 @@ class HospitalRealtimeStatus(Base):
     """Time-bound hospital acceptance and bed status."""
 
     __tablename__ = "hospital_realtime_status"
+    __table_args__ = (
+        Index(
+            "ix_hospital_realtime_status_latest",
+            "hospital_id",
+            "source_updated_at",
+            "fetched_at",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
     hospital_id: Mapped[str] = mapped_column(ForeignKey("hospital.hospital_id"), nullable=False, index=True)
@@ -89,13 +124,120 @@ class HospitalRealtimeStatus(Base):
     raw_payload_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     schema_version: Mapped[str] = mapped_column(String(64), nullable=False)
     source_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    source_updated_at_raw: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    source_timezone: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        default="unknown",
+    )
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class HospitalEmergencyProfile(Base):
+    """Official emergency-institution registration linked to a canonical hospital."""
+
+    __tablename__ = "hospital_emergency_profile"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_name",
+            "source_record_id",
+            name="uq_hospital_emergency_profile_source_record",
+        ),
+        UniqueConstraint(
+            "hospital_id",
+            "source_name",
+            name="uq_hospital_emergency_profile_hospital_source",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    hospital_id: Mapped[str] = mapped_column(
+        ForeignKey("hospital.hospital_id"),
+        nullable=False,
+        index=True,
+    )
+    source_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    source_record_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    source_institution_name: Mapped[str] = mapped_column(String(256), nullable=False)
+    source_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    emergency_type_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    emergency_type_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    representative_phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    emergency_phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    match_method: Mapped[str] = mapped_column(String(64), nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    coordinate_distance_meters: Mapped[float | None] = mapped_column(Float, nullable=True)
+    coordinate_warning: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    raw_payload_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    schema_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
+class HospitalSourceIdentity(Base):
+    """Cross-source hospital identifier candidate requiring explicit verification."""
+
+    __tablename__ = "hospital_source_identity"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_name",
+            "source_record_id",
+            name="uq_hospital_source_identity_source_record",
+        ),
+        CheckConstraint(
+            "match_confidence IS NULL OR (match_confidence >= 0 AND match_confidence <= 1)",
+            name="ck_hospital_source_identity_confidence",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    hospital_id: Mapped[str] = mapped_column(
+        ForeignKey("hospital.hospital_id"),
+        nullable=False,
+        index=True,
+    )
+    source_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    source_record_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    source_hospital_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    match_method: Mapped[str] = mapped_column(String(64), nullable=False)
+    match_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
 
 class DataSourceRegistry(Base):
     """Registry row describing a configured external data source."""
 
     __tablename__ = "data_source_registry"
+    __table_args__ = (
+        UniqueConstraint("source_name", name="uq_data_source_registry_source_name"),
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
     source_name: Mapped[str] = mapped_column(String(128), nullable=False)

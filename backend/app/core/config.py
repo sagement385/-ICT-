@@ -29,10 +29,11 @@ class Settings(BaseSettings):
     hira_api_key: str | None = Field(default=None, alias="HIRA_API_KEY")
     nemc_api_key: str | None = Field(default=None, alias="NEMC_API_KEY")
     molit_traffic_api_key: str | None = Field(default=None, alias="MOLIT_TRAFFIC_API_KEY")
+    molit_traffic_base_url: str | None = Field(default=None, alias="MOLIT_TRAFFIC_BASE_URL")
     naver_map_client_id: str | None = Field(default=None, alias="NAVER_MAP_CLIENT_ID")
     naver_map_client_secret: str | None = Field(default=None, alias="NAVER_MAP_CLIENT_SECRET")
     gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
-    gemini_model: str = Field(default="gemini-2.5-flash-lite", alias="GEMINI_MODEL")
+    gemini_model: str = Field(default="gemini-3.5-flash", alias="GEMINI_MODEL")
     gemini_base_url: str = Field(
         default="https://generativelanguage.googleapis.com/v1beta",
         alias="GEMINI_BASE_URL",
@@ -55,6 +56,10 @@ class Settings(BaseSettings):
         default="https://apis.data.go.kr/B552657/ErmctInfoInqireService",
         alias="NEMC_BASE_URL",
     )
+    nemc_source_timezone: str | None = Field(
+        default=None,
+        alias="NEMC_SOURCE_TIMEZONE",
+    )
     naver_directions_base_url: str = Field(
         default="https://maps.apigw.ntruss.com/map-direction/v1",
         alias="NAVER_DIRECTIONS_BASE_URL",
@@ -68,13 +73,46 @@ class Settings(BaseSettings):
     its_node_link_data_root: str | None = Field(default=None, alias="ITS_NODE_LINK_DATA_ROOT")
     backend_api_base_url: str | None = Field(default=None, alias="BACKEND_API_BASE_URL")
     route_data_max_age_seconds: int | None = Field(default=None, alias="ROUTE_DATA_MAX_AGE_SECONDS")
-    hospital_status_max_age_seconds: int | None = Field(default=None, alias="HOSPITAL_STATUS_MAX_AGE_SECONDS")
+    hospital_data_max_age_seconds: int | None = Field(
+        default=None,
+        alias="HOSPITAL_DATA_MAX_AGE_SECONDS",
+    )
+    hospital_status_max_age_seconds: int | None = Field(
+        default=None, alias="HOSPITAL_STATUS_MAX_AGE_SECONDS"
+    )
+    emergency_institution_data_max_age_seconds: int | None = Field(
+        default=None,
+        alias="EMERGENCY_INSTITUTION_DATA_MAX_AGE_SECONDS",
+    )
     chungbuk_sido_code: str = Field(default="330000", alias="CHUNGBUK_SIDO_CODE")
+    chungbuk_region_name: str = Field(default="충청북도", alias="CHUNGBUK_REGION_NAME")
+    nemc_hira_coordinate_warning_meters: float = Field(
+        default=1000.0,
+        ge=0,
+        alias="NEMC_HIRA_COORDINATE_WARNING_METERS",
+    )
     candidate_radius_km: float = Field(default=10.0, ge=5.0, le=10.0, alias="CANDIDATE_RADIUS_KM")
     naver_directions_max_calls: int | None = Field(
         default=None,
         ge=1,
         alias="NAVER_DIRECTIONS_MAX_CALLS",
+    )
+    recommendation_route_candidate_limit: int = Field(
+        default=10,
+        ge=1,
+        le=50,
+        alias="RECOMMENDATION_ROUTE_CANDIDATE_LIMIT",
+    )
+    routing_max_concurrency: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        alias="ROUTING_MAX_CONCURRENCY",
+    )
+    nemc_sync_interval_seconds: int | None = Field(
+        default=None,
+        ge=30,
+        alias="NEMC_SYNC_INTERVAL_SECONDS",
     )
 
 

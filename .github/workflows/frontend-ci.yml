@@ -2,9 +2,9 @@ name: frontend-ci
 
 on:
   push:
-    paths: ["frontend/**"]
+    paths: ["frontend/**", "infra/docker/frontend.Dockerfile", "infra/docker/nginx.conf", ".github/workflows/frontend-ci.yml"]
   pull_request:
-    paths: ["frontend/**"]
+    paths: ["frontend/**", "infra/docker/frontend.Dockerfile", "infra/docker/nginx.conf", ".github/workflows/frontend-ci.yml"]
 
 jobs:
   build:
@@ -18,7 +18,10 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: frontend/package.json
-      - run: npm install
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test -- --run
       - run: npm run build
-
+      - run: npm audit --omit=dev
+      - run: docker build -f infra/docker/frontend.Dockerfile --target production .
+        working-directory: ${{ github.workspace }}

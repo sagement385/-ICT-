@@ -2,6 +2,8 @@
 
 from collections.abc import Mapping
 
+import httpx
+
 from app.core.config import get_settings
 from app.core.errors import ApplicationError
 from app.integrations.common.base_client import BaseExternalClient, RawExternalResponse
@@ -10,7 +12,11 @@ from app.integrations.common.base_client import BaseExternalClient, RawExternalR
 class NaverGeocodingClient(BaseExternalClient):
     """Fetch raw address-to-coordinate responses from Naver Maps."""
 
-    def __init__(self, base_url: str | None = None) -> None:
+    def __init__(
+        self,
+        base_url: str | None = None,
+        http_client: httpx.AsyncClient | None = None,
+    ) -> None:
         """Create a client using the configured Naver Cloud credentials."""
 
         settings = get_settings()
@@ -19,6 +25,8 @@ class NaverGeocodingClient(BaseExternalClient):
             api_key=settings.naver_map_client_secret,
             source_name="naver-geocoding",
             api_key_param=None,
+            base_url_setting_name="NAVER_GEOCODING_BASE_URL",
+            http_client=http_client,
         )
         self.client_id = settings.naver_map_client_id
 
